@@ -2,17 +2,17 @@
 
 ## What is CVBuddy?
 
-CVBuddy is a career support platform for students and early-career users.
+CVBuddy is a career support platform for applicants and early-career users.
 
 The MVP backend supports:
 
-- Account registration and login for Student, Company, and Admin.
-- Student profile and company profile.
+- Account registration and login for Applicant, Company, and Admin.
+- Applicant profile and company profile.
 - CV upload and management.
 - AI CV feedback, CV scoring, CV translation, and basic job recommendation result storage.
 - Portfolio creation and mobile photo upload to portfolio.
 - Job posting by companies.
-- Job application by students.
+- Job application by applicants.
 - Notifications and feedback form.
 
 ## Backend Stack
@@ -111,6 +111,119 @@ Expected response:
 }
 ```
 
+## Phase 2 Authentication APIs
+
+Base URL:
+
+```txt
+http://localhost:5000/api
+```
+
+Register an applicant:
+
+```txt
+POST /auth/register/applicant
+```
+
+```json
+{
+  "email": "applicant@example.com",
+  "password": "Applicant@123",
+  "fullName": "Nguyen Van A"
+}
+```
+
+Register a company:
+
+```txt
+POST /auth/register/company
+```
+
+```json
+{
+  "email": "company@example.com",
+  "password": "Company@123",
+  "companyName": "ABC Company"
+}
+```
+
+Login:
+
+```txt
+POST /auth/login
+```
+
+```json
+{
+  "email": "applicant@example.com",
+  "password": "Applicant@123"
+}
+```
+
+Protected APIs require:
+
+```txt
+Authorization: Bearer <token>
+```
+
+Current account:
+
+```txt
+GET /auth/me
+```
+
+Change password:
+
+```txt
+PATCH /auth/change-password
+```
+
+```json
+{
+  "currentPassword": "Applicant@123",
+  "newPassword": "NewPassword@123"
+}
+```
+
+Logout:
+
+```txt
+POST /auth/logout
+```
+
+## Phase 3 Applicant Profile APIs
+
+Both endpoints require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+```
+
+Get my applicant profile:
+
+```txt
+GET /applicant-profile/me
+```
+
+Update my applicant profile:
+
+```txt
+PATCH /applicant-profile/me
+```
+
+```json
+{
+  "phone": "0900000000",
+  "university": "FPT University",
+  "major": "Software Engineering",
+  "location": "Can Tho",
+  "headline": "Junior Backend Developer",
+  "summary": "I am looking for internship opportunities.",
+  "careerGoal": "Become a backend developer.",
+  "avatarUrl": "https://example.com/avatar.jpg"
+}
+```
+
 ## Environment Variables
 
 Example `.env`:
@@ -142,7 +255,7 @@ Do not commit real `.env` values.
 - Keep model fields aligned with `MVP_Database.txt`.
 - Use modular structure: model, route, controller, service, validation, middleware.
 - Use JWT for protected APIs.
-- Use role-based access for Student, Company, and Admin APIs.
+- Use role-based access for Applicant, Company, and Admin APIs.
 - Treat AI output as suggestions only.
 - Keep API response format consistent.
 - Update documentation after coding.
