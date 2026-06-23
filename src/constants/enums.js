@@ -10,9 +10,23 @@ const ACCOUNT_STATUSES = Object.freeze({
   SUSPENDED: "SUSPENDED"
 });
 
+const CV_LANGUAGES = Object.freeze({
+  VI: "VI",
+  EN: "EN"
+});
+
+const CV_STATUSES = Object.freeze({
+  ACTIVE: "ACTIVE",
+  DELETED: "DELETED"
+});
+
 module.exports = {
   ACCOUNT_ROLES,
   ACCOUNT_ROLE_VALUES: Object.values(ACCOUNT_ROLES),
   ACCOUNT_STATUSES,
-  ACCOUNT_STATUS_VALUES: Object.values(ACCOUNT_STATUSES)
+  ACCOUNT_STATUS_VALUES: Object.values(ACCOUNT_STATUSES),
+  CV_LANGUAGES,
+  CV_LANGUAGE_VALUES: Object.values(CV_LANGUAGES),
+  CV_STATUSES,
+  CV_STATUS_VALUES: Object.values(CV_STATUSES)
 };

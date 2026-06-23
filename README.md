@@ -224,6 +224,47 @@ PATCH /applicant-profile/me
 }
 ```
 
+## Phase 4 CV Management APIs
+
+All CV endpoints require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+```
+
+Upload a CV:
+
+```txt
+POST /cvs
+Content-Type: multipart/form-data
+```
+
+Form-data:
+
+```txt
+file: PDF or DOCX file
+title: My Backend Developer CV
+language: VI or EN
+```
+
+Get my CV list:
+
+```txt
+GET /cvs
+```
+
+Get CV detail:
+
+```txt
+GET /cvs/:id
+```
+
+Soft delete CV:
+
+```txt
+DELETE /cvs/:id
+```
+
 ## Environment Variables
 
 Example `.env`:

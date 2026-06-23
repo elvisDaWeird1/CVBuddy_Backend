@@ -39,6 +39,20 @@ const errorHandler = (err, req, res, next) => {
     ];
   }
 
+  if (err.name === "MulterError") {
+    statusCode = 400;
+    message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "CV file is too large"
+        : err.message || "File upload failed";
+    errors = [
+      {
+        field: err.field || "file",
+        message
+      }
+    ];
+  }
+
   if (process.env.NODE_ENV !== "production" && statusCode >= 500) {
     console.error(err);
   }
