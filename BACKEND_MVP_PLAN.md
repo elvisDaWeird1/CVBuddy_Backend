@@ -4,7 +4,7 @@
 
 This document is the main backend implementation plan for **CVBuddy MVP**.
 
-CVBuddy is a career support platform that helps students and early-career users:
+CVBuddy is a career support platform that helps applicants and early-career users:
 
 - Upload and manage CV files.
 - Receive AI feedback, CV scoring, and Vietnamese-to-English CV translation.
@@ -106,12 +106,12 @@ src/
       account.model.js
       account.service.js
 
-    studentProfiles/
-      studentProfile.model.js
-      studentProfile.routes.js
-      studentProfile.controller.js
-      studentProfile.service.js
-      studentProfile.validation.js
+    applicantProfiles/
+      applicantProfile.model.js
+      applicantProfile.routes.js
+      applicantProfile.controller.js
+      applicantProfile.service.js
+      applicantProfile.validation.js
 
     companyProfiles/
       companyProfile.model.js
@@ -198,7 +198,7 @@ If the current project already has a different structure, do not refactor the wh
 Create shared enums in `src/constants/enums.js` or define them inside each model.
 
 ```js
-const ACCOUNT_ROLES = ["STUDENT", "COMPANY", "ADMIN"];
+const ACCOUNT_ROLES = ["APPLICANT", "COMPANY", "ADMIN"];
 
 const ACCOUNT_STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED"];
 
@@ -263,7 +263,7 @@ const AccountSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["STUDENT", "COMPANY", "ADMIN"],
+      enum: ["APPLICANT", "COMPANY", "ADMIN"],
       required: true
     },
 
@@ -289,22 +289,22 @@ Rules:
 - Do not return `passwordHash` to the client.
 - Hash password with bcrypt.
 - Login only works for `ACTIVE` accounts.
-- Do not store `fullName` in Account. Student name belongs to StudentProfile. Company name belongs to CompanyProfile.
+- Do not store `fullName` in Account. Applicant name belongs to ApplicantProfile. Company name belongs to CompanyProfile.
 
 ---
 
-### 7.2 StudentProfile Model
+### 7.2 ApplicantProfile Model
 
 File:
 
 ```txt
-src/modules/studentProfiles/studentProfile.model.js
+src/modules/applicantProfiles/applicantProfile.model.js
 ```
 
 Mongoose model:
 
 ```js
-const StudentProfileSchema = new mongoose.Schema(
+const ApplicantProfileSchema = new mongoose.Schema(
   {
     accountId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -361,14 +361,14 @@ const StudentProfileSchema = new mongoose.Schema(
   }
 );
 
-StudentProfileSchema.index({ accountId: 1 }, { unique: true });
-StudentProfileSchema.index({ fullName: "text", university: "text", major: "text" });
+ApplicantProfileSchema.index({ accountId: 1 }, { unique: true });
+ApplicantProfileSchema.index({ fullName: "text", university: "text", major: "text" });
 ```
 
 Rules:
 
-- When a Student account is registered, create a StudentProfile automatically.
-- A Student account has only one StudentProfile.
+- When an Applicant account is registered, create an ApplicantProfile automatically.
+- An Applicant account has only one ApplicantProfile.
 - Only the owner or Admin can view/update protected profile data.
 
 ---
@@ -462,9 +462,9 @@ Mongoose model:
 ```js
 const CVDocumentSchema = new mongoose.Schema(
   {
-    studentProfileId: {
+    applicantProfileId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "StudentProfile",
+      ref: "ApplicantProfile",
       required: true
     },
 
@@ -517,14 +517,14 @@ const CVDocumentSchema = new mongoose.Schema(
   }
 );
 
-CVDocumentSchema.index({ studentProfileId: 1 });
+CVDocumentSchema.index({ applicantProfileId: 1 });
 CVDocumentSchema.index({ status: 1 });
 CVDocumentSchema.index({ uploadedAt: -1 });
 ```
 
 Rules:
 
-- Only Student accounts can upload CVs.
+- Only Applicant accounts can upload CVs.
 - Only PDF/DOCX should be accepted.
 - File size limit should be configurable by `.env`.
 - Delete should be soft delete by setting `status = DELETED`.
@@ -641,9 +641,9 @@ Mongoose model:
 ```js
 const PortfolioSchema = new mongoose.Schema(
   {
-    studentProfileId: {
+    applicantProfileId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "StudentProfile",
+      ref: "ApplicantProfile",
       required: true,
       unique: true
     },
@@ -674,13 +674,13 @@ const PortfolioSchema = new mongoose.Schema(
   }
 );
 
-PortfolioSchema.index({ studentProfileId: 1 }, { unique: true });
+PortfolioSchema.index({ applicantProfileId: 1 }, { unique: true });
 PortfolioSchema.index({ visibility: 1 });
 ```
 
 Rules:
 
-- One StudentProfile has one Portfolio.
+- One ApplicantProfile has one Portfolio.
 - MVP does not include `slug`.
 - If public portfolio endpoint is needed, use portfolio ID.
 - Do not add `LINK_ONLY` in MVP.
@@ -862,7 +862,7 @@ Rules:
 
 - Only Company accounts can create jobs.
 - Company can only update/close its own jobs.
-- Guest and Student can only view `ACTIVE` jobs.
+- Guest and Applicant can only view `ACTIVE` jobs.
 - MVP uses `jobType` and `skillsText` as simple text fields.
 - Do not add job approval, job categories, or job skills table in MVP.
 
@@ -887,9 +887,9 @@ const ApplicationSchema = new mongoose.Schema(
       required: true
     },
 
-    studentProfileId: {
+    applicantProfileId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "StudentProfile",
+      ref: "ApplicantProfile",
       required: true
     },
 
@@ -927,11 +927,11 @@ const ApplicationSchema = new mongoose.Schema(
 );
 
 ApplicationSchema.index(
-  { jobId: 1, studentProfileId: 1 },
+  { jobId: 1, applicantProfileId: 1 },
   { unique: true }
 );
 
-ApplicationSchema.index({ studentProfileId: 1 });
+ApplicationSchema.index({ applicantProfileId: 1 });
 ApplicationSchema.index({ jobId: 1 });
 ApplicationSchema.index({ status: 1 });
 ApplicationSchema.index({ submittedAt: -1 });
@@ -939,12 +939,12 @@ ApplicationSchema.index({ submittedAt: -1 });
 
 Rules:
 
-- One Student can apply to one Job only once.
-- Student can only apply using their own CV.
-- Student can only apply to `ACTIVE` jobs.
+- One Applicant can apply to one Job only once.
+- Applicant can only apply using their own CV.
+- Applicant can only apply to `ACTIVE` jobs.
 - Company can only view applications for jobs owned by its CompanyProfile.
-- Notify Company when a Student applies.
-- Notify Student when Company updates application status.
+- Notify Company when an Applicant applies.
+- Notify Applicant when Company updates application status.
 - MVP does not include withdraw application, status logs, or interview invitation.
 
 ---
@@ -1077,15 +1077,15 @@ Rules:
 ## 8. MVP Model Relationships
 
 ```txt
-Account 1 - 1 StudentProfile
+Account 1 - 1 ApplicantProfile
 Account 1 - 1 CompanyProfile
 Account 1 - n AIResult
 Account 1 - n Notification
 Account 1 - n Feedback
 
-StudentProfile 1 - n CVDocument
-StudentProfile 1 - 1 Portfolio
-StudentProfile 1 - n Application
+ApplicantProfile 1 - n CVDocument
+ApplicantProfile 1 - 1 Portfolio
+ApplicantProfile 1 - n Application
 
 CVDocument 1 - n AIResult
 CVDocument 1 - n Application
@@ -1125,7 +1125,7 @@ Response:
 ### 9.2 Auth APIs
 
 ```txt
-POST /api/auth/register/student
+POST /api/auth/register/applicant
 POST /api/auth/register/company
 POST /api/auth/login
 POST /api/auth/logout
@@ -1133,12 +1133,12 @@ GET  /api/auth/me
 PATCH /api/auth/change-password
 ```
 
-Register Student body:
+Register Applicant body:
 
 ```json
 {
-  "email": "student@example.com",
-  "password": "Student@123",
+  "email": "applicant@example.com",
+  "password": "Applicant@123",
   "fullName": "Nguyen Van A"
 }
 ```
@@ -1155,23 +1155,23 @@ Register Company body:
 
 Rules:
 
-- Register Student creates Account + StudentProfile.
+- Register Applicant creates Account + ApplicantProfile.
 - Register Company creates Account + CompanyProfile.
 - Login returns JWT token and account info without `passwordHash`.
 - Change password requires current password.
 
 ---
 
-### 9.3 Student Profile APIs
+### 9.3 Applicant Profile APIs
 
 ```txt
-GET   /api/student-profile/me
-PATCH /api/student-profile/me
+GET   /api/applicant-profile/me
+PATCH /api/applicant-profile/me
 ```
 
 Rules:
 
-- Student can view/update own profile.
+- Applicant can view/update own profile.
 - Admin access can be added only if needed for MVP testing.
 
 ---
@@ -1201,7 +1201,7 @@ DELETE /api/cvs/:id
 
 Rules:
 
-- Only Student can upload CV.
+- Only Applicant can upload CV.
 - Only owner can view/delete own CV.
 - Delete means `status = DELETED`.
 
@@ -1220,7 +1220,7 @@ GET  /api/ai/results/:id
 
 Rules:
 
-- Student can request AI for their own CV.
+- Applicant can request AI for their own CV.
 - Start with mock AI if no real AI provider is configured.
 - Store all AI outputs in `AIResult`.
 - Create notification when AI task completes or fails.
@@ -1239,7 +1239,7 @@ PATCH /api/portfolios/me/visibility
 
 Rules:
 
-- Student can create/update own portfolio.
+- Applicant can create/update own portfolio.
 - Public endpoint only returns portfolio if `visibility = PUBLIC`.
 - Private portfolio is not visible to Guest.
 
@@ -1259,7 +1259,7 @@ POST   /api/mobile/portfolio/photos
 Rules:
 
 - `POST /api/mobile/portfolio/photos` receives image upload and creates PortfolioItem.
-- If Student has no portfolio, create a default private portfolio first.
+- If Applicant has no portfolio, create a default private portfolio first.
 - Only owner can update/delete item.
 - Guest can only see public items through public portfolio API.
 
@@ -1280,7 +1280,7 @@ Rules:
 
 - Company creates jobs.
 - Company can only update/close/delete its own jobs.
-- Guest and Student only see ACTIVE jobs.
+- Guest and Applicant only see ACTIVE jobs.
 - DELETE can soft-close or hard delete depending on existing project style. Prefer setting status to CLOSED for MVP.
 
 ---
@@ -1297,13 +1297,13 @@ PATCH /api/company/applications/:id/status
 
 Rules:
 
-- Student applies to ACTIVE job with own CV.
+- Applicant applies to ACTIVE job with own CV.
 - Prevent duplicate application for the same job.
 - Company views applications for its own jobs.
 - Company updates application status.
 - Notifications:
   - New application -> notify Company.
-  - Status update -> notify Student.
+  - Status update -> notify Applicant.
 
 ---
 
@@ -1467,7 +1467,7 @@ Codex should code in this order:
 5. Account model.
 6. Auth register/login/me/change-password.
 7. Auth and role middleware.
-8. StudentProfile and CompanyProfile models/APIs.
+8. ApplicantProfile and CompanyProfile models/APIs.
 9. Upload middleware.
 10. CVDocument model/APIs.
 11. AIResult model and mock AI service.
@@ -1478,7 +1478,7 @@ Codex should code in this order:
 16. Job model/APIs.
 17. Application model/APIs.
 18. Feedback model/API.
-19. Seed admin/student/company data.
+19. Seed admin/applicant/company data.
 20. README and API documentation update.
 21. Postman test guide or collection.
 
@@ -1488,7 +1488,7 @@ Codex should code in this order:
 
 ### Auth
 
-- Register Student successfully.
+- Register Applicant successfully.
 - Register Company successfully.
 - Duplicate email fails.
 - Login successfully.
@@ -1499,18 +1499,18 @@ Codex should code in this order:
 
 ### Profile
 
-- Student can get/update own profile.
+- Applicant can get/update own profile.
 - Company can get/update own profile.
-- Student cannot access company-only APIs.
-- Company cannot access student-only APIs.
+- Applicant cannot access company-only APIs.
+- Company cannot access applicant-only APIs.
 
 ### CV
 
-- Student uploads PDF/DOCX CV.
+- Applicant uploads PDF/DOCX CV.
 - Wrong file type fails.
-- Student gets own CV list.
-- Student views own CV detail.
-- Student cannot view another student's CV.
+- Applicant gets own CV list.
+- Applicant views own CV detail.
+- Applicant cannot view another applicant's CV.
 - Delete CV sets status to DELETED.
 
 ### AI
@@ -1524,10 +1524,10 @@ Codex should code in this order:
 
 ### Portfolio
 
-- Student creates portfolio.
-- Student updates portfolio.
-- Student uploads portfolio item from web.
-- Student uploads photo from mobile endpoint.
+- Applicant creates portfolio.
+- Applicant updates portfolio.
+- Applicant uploads portfolio item from web.
+- Applicant uploads photo from mobile endpoint.
 - Mobile photo appears in portfolio item list.
 - Public portfolio can be viewed by Guest only if visibility is PUBLIC.
 - Private portfolio is not publicly accessible.
@@ -1537,14 +1537,14 @@ Codex should code in this order:
 - Company creates job.
 - Company updates own job.
 - Company closes own job.
-- Guest/Student can view ACTIVE jobs.
-- Guest/Student cannot view DRAFT jobs.
+- Guest/Applicant can view ACTIVE jobs.
+- Guest/Applicant cannot view DRAFT jobs.
 
 ### Application
 
-- Student applies to ACTIVE job.
-- Student cannot apply twice to the same job.
-- Student cannot apply using another student's CV.
+- Applicant applies to ACTIVE job.
+- Applicant cannot apply twice to the same job.
+- Applicant cannot apply using another applicant's CV.
 - Company sees applications for own jobs.
 - Company updates application status.
 - Notifications are created for application events.
@@ -1570,14 +1570,14 @@ Required seed accounts:
 
 ```txt
 admin@example.com / Admin@123
-student@example.com / Student@123
+applicant@example.com / Applicant@123
 company@example.com / Company@123
 ```
 
 Seed should create:
 
 - 1 Admin account.
-- 1 Student account + StudentProfile.
+- 1 Applicant account + ApplicantProfile.
 - 1 Company account + CompanyProfile.
 - 1 sample Portfolio.
 - 2 sample PortfolioItems.
@@ -1596,7 +1596,7 @@ oauth_accounts
 password_reset_tokens
 account_deletion_requests
 skills
-student_skills
+applicant_skills
 job_categories
 cv_versions
 ai_requests
@@ -1638,21 +1638,21 @@ Backend MVP is complete when:
 1. Server runs without error.
 2. MongoDB connects successfully.
 3. `.env.example` is available.
-4. Student can register/login.
+4. Applicant can register/login.
 5. Company can register/login.
 6. Passwords are hashed.
 7. JWT authentication works.
 8. Role-based access works.
-9. StudentProfile and CompanyProfile are created on registration.
-10. Student can upload/list/view/delete CV.
+9. ApplicantProfile and CompanyProfile are created on registration.
+10. Applicant can upload/list/view/delete CV.
 11. AI feedback/scoring/translation APIs work with mock or configured provider.
 12. AI results are saved in `ai_results`.
 13. AI completion/failure creates notifications.
-14. Student can create/update portfolio.
+14. Applicant can create/update portfolio.
 15. Mobile photo upload creates PortfolioItem.
 16. Public portfolio visibility works.
 17. Company can create/manage jobs.
-18. Student can apply to jobs.
+18. Applicant can apply to jobs.
 19. Company can view applications and update status.
 20. Application notifications work.
 21. Feedback form works.
