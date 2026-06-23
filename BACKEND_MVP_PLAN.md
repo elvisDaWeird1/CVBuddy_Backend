@@ -84,109 +84,109 @@ If the backend project has no structure yet, use this structure:
 
 ```txt
 src/
-  app.js
-  server.js
+  app.ts
+  server.ts
 
   config/
-    db.js
-    env.js
-    storage.js
+    db.ts
+    env.ts
+    storage.ts
 
   constants/
-    enums.js
+    enums.ts
 
   modules/
     auth/
-      auth.routes.js
-      auth.controller.js
-      auth.service.js
-      auth.validation.js
+      auth.routes.ts
+      auth.controller.ts
+      auth.service.ts
+      auth.validation.ts
 
     accounts/
-      account.model.js
-      account.service.js
+      account.model.ts
+      account.service.ts
 
     applicantProfiles/
-      applicantProfile.model.js
-      applicantProfile.routes.js
-      applicantProfile.controller.js
-      applicantProfile.service.js
-      applicantProfile.validation.js
+      applicantProfile.model.ts
+      applicantProfile.routes.ts
+      applicantProfile.controller.ts
+      applicantProfile.service.ts
+      applicantProfile.validation.ts
 
     companyProfiles/
-      companyProfile.model.js
-      companyProfile.routes.js
-      companyProfile.controller.js
-      companyProfile.service.js
-      companyProfile.validation.js
+      companyProfile.model.ts
+      companyProfile.routes.ts
+      companyProfile.controller.ts
+      companyProfile.service.ts
+      companyProfile.validation.ts
 
     cvs/
-      cvDocument.model.js
-      cv.routes.js
-      cv.controller.js
-      cv.service.js
-      cv.validation.js
+      cvDocument.model.ts
+      cv.routes.ts
+      cv.controller.ts
+      cv.service.ts
+      cv.validation.ts
 
     ai/
-      aiResult.model.js
-      ai.routes.js
-      ai.controller.js
-      ai.service.js
-      aiMock.service.js
-      ai.validation.js
+      aiResult.model.ts
+      ai.routes.ts
+      ai.controller.ts
+      ai.service.ts
+      aiMock.service.ts
+      ai.validation.ts
 
     portfolios/
-      portfolio.model.js
-      portfolioItem.model.js
-      portfolio.routes.js
-      portfolio.controller.js
-      portfolio.service.js
-      portfolio.validation.js
+      portfolio.model.ts
+      portfolioItem.model.ts
+      portfolio.routes.ts
+      portfolio.controller.ts
+      portfolio.service.ts
+      portfolio.validation.ts
 
     jobs/
-      job.model.js
-      job.routes.js
-      job.controller.js
-      job.service.js
-      job.validation.js
+      job.model.ts
+      job.routes.ts
+      job.controller.ts
+      job.service.ts
+      job.validation.ts
 
     applications/
-      application.model.js
-      application.routes.js
-      application.controller.js
-      application.service.js
-      application.validation.js
+      application.model.ts
+      application.routes.ts
+      application.controller.ts
+      application.service.ts
+      application.validation.ts
 
     notifications/
-      notification.model.js
-      notification.routes.js
-      notification.controller.js
-      notification.service.js
+      notification.model.ts
+      notification.routes.ts
+      notification.controller.ts
+      notification.service.ts
 
     feedbacks/
-      feedback.model.js
-      feedback.routes.js
-      feedback.controller.js
-      feedback.service.js
-      feedback.validation.js
+      feedback.model.ts
+      feedback.routes.ts
+      feedback.controller.ts
+      feedback.service.ts
+      feedback.validation.ts
 
   middlewares/
-    auth.middleware.js
-    role.middleware.js
-    error.middleware.js
-    upload.middleware.js
-    validate.middleware.js
+    auth.middleware.ts
+    role.middleware.ts
+    error.middleware.ts
+    upload.middleware.ts
+    validate.middleware.ts
 
   utils/
-    asyncHandler.js
-    apiError.js
-    apiResponse.js
-    jwt.js
-    file.js
+    asyncHandler.ts
+    apiError.ts
+    apiResponse.ts
+    jwt.ts
+    file.ts
 
   seed/
-    seedAdmin.js
-    seedSampleData.js
+    seedAdmin.ts
+    seedSampleData.ts
 ```
 
 If the current project already has a different structure, do not refactor the whole project. Add these modules in the existing style.
@@ -195,7 +195,7 @@ If the current project already has a different structure, do not refactor the wh
 
 ## 6. MVP Enums
 
-Create shared enums in `src/constants/enums.js` or define them inside each model.
+Create shared enums in `src/constants/enums.ts` or define them inside each model.
 
 ```js
 const ACCOUNT_ROLES = ["APPLICANT", "COMPANY", "ADMIN"];
@@ -240,7 +240,7 @@ Use uppercase enum values exactly as defined in `MVP_Database.txt`.
 File:
 
 ```txt
-src/modules/accounts/account.model.js
+src/modules/accounts/account.model.ts
 ```
 
 Mongoose model:
@@ -298,7 +298,7 @@ Rules:
 File:
 
 ```txt
-src/modules/applicantProfiles/applicantProfile.model.js
+src/modules/applicantProfiles/applicantProfile.model.ts
 ```
 
 Mongoose model:
@@ -378,7 +378,7 @@ Rules:
 File:
 
 ```txt
-src/modules/companyProfiles/companyProfile.model.js
+src/modules/companyProfiles/companyProfile.model.ts
 ```
 
 Mongoose model:
@@ -454,7 +454,7 @@ Rules:
 File:
 
 ```txt
-src/modules/cvs/cvDocument.model.js
+src/modules/cvs/cvDocument.model.ts
 ```
 
 Mongoose model:
@@ -537,7 +537,7 @@ Rules:
 File:
 
 ```txt
-src/modules/ai/aiResult.model.js
+src/modules/ai/aiResult.model.ts
 ```
 
 Mongoose model:
@@ -633,7 +633,7 @@ Rules:
 File:
 
 ```txt
-src/modules/portfolios/portfolio.model.js
+src/modules/portfolios/portfolio.model.ts
 ```
 
 Mongoose model:
@@ -692,7 +692,7 @@ Rules:
 File:
 
 ```txt
-src/modules/portfolios/portfolioItem.model.js
+src/modules/portfolios/portfolioItem.model.ts
 ```
 
 Mongoose model:
@@ -779,7 +779,7 @@ Rules:
 File:
 
 ```txt
-src/modules/jobs/job.model.js
+src/modules/jobs/job.model.ts
 ```
 
 Mongoose model:
@@ -873,7 +873,7 @@ Rules:
 File:
 
 ```txt
-src/modules/applications/application.model.js
+src/modules/applications/application.model.ts
 ```
 
 Mongoose model:
@@ -954,7 +954,7 @@ Rules:
 File:
 
 ```txt
-src/modules/notifications/notification.model.js
+src/modules/notifications/notification.model.ts
 ```
 
 Mongoose model:
@@ -1020,7 +1020,7 @@ Rules:
 File:
 
 ```txt
-src/modules/feedbacks/feedback.model.js
+src/modules/feedbacks/feedback.model.ts
 ```
 
 Mongoose model:

@@ -22,6 +22,7 @@ Use the existing project stack if already configured.
 Default backend stack:
 
 - Node.js
+- TypeScript
 - Express.js
 - MongoDB
 - Mongoose
@@ -84,7 +85,13 @@ Run in development mode:
 npm run dev
 ```
 
-Or run normally:
+Build TypeScript:
+
+```bash
+npm run build
+```
+
+Start production from `dist`:
 
 ```bash
 npm start
