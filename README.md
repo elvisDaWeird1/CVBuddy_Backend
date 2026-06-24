@@ -300,6 +300,55 @@ Soft delete CV:
 DELETE /cvs/:id
 ```
 
+## Phase 5 AI CV APIs
+
+AI endpoints require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+```
+
+If `AI_PROVIDER=mock` or no `AI_API_KEY` is configured, the backend returns mock AI responses.
+
+Generate CV feedback:
+
+```txt
+POST /ai/cvs/:cvId/feedback
+```
+
+Generate CV score:
+
+```txt
+POST /ai/cvs/:cvId/score
+```
+
+Translate CV to English:
+
+```txt
+POST /ai/cvs/:cvId/translate-to-english
+```
+
+Optional body when the uploaded CV has no extracted text:
+
+```json
+{
+  "targetRole": "Backend Developer",
+  "cvText": "Paste CV text here if extractedText is empty."
+}
+```
+
+Get my AI result history:
+
+```txt
+GET /ai/results
+```
+
+Get AI result detail:
+
+```txt
+GET /ai/results/:id
+```
+
 ## Environment Variables
 
 Example `.env`:

@@ -26,6 +26,28 @@ const cvIdParameter = {
   }
 };
 
+const aiCvIdParameter = {
+  name: "cvId",
+  in: "path",
+  required: true,
+  description: "CV document id",
+  schema: {
+    type: "string",
+    example: "66a333333333333333333333"
+  }
+};
+
+const aiResultIdParameter = {
+  name: "id",
+  in: "path",
+  required: true,
+  description: "AI result id",
+  schema: {
+    type: "string",
+    example: "66a444444444444444444444"
+  }
+};
+
 const swaggerPaths = {
   "/api/health": {
     get: {
@@ -433,6 +455,174 @@ const swaggerPaths = {
         404: errorResponse
       }
     }
+  },
+  "/api/ai/cvs/{cvId}/feedback": {
+    post: {
+      tags: ["AI"],
+      summary: "Generate AI feedback for my CV",
+      security: bearerSecurity,
+      parameters: [aiCvIdParameter],
+      requestBody: {
+        required: false,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/AiCvRequest"
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: "AI feedback generated successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/AiResultResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/ai/cvs/{cvId}/score": {
+    post: {
+      tags: ["AI"],
+      summary: "Score my CV with AI",
+      security: bearerSecurity,
+      parameters: [aiCvIdParameter],
+      requestBody: {
+        required: false,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/AiCvRequest"
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: "CV score generated successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/AiResultResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/ai/cvs/{cvId}/translate-to-english": {
+    post: {
+      tags: ["AI"],
+      summary: "Translate my CV to English",
+      security: bearerSecurity,
+      parameters: [aiCvIdParameter],
+      requestBody: {
+        required: false,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/AiCvRequest"
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: "CV translated to English successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/AiResultResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/ai/results": {
+    get: {
+      tags: ["AI"],
+      summary: "Get my AI result history",
+      security: bearerSecurity,
+      parameters: [
+        {
+          name: "aiType",
+          in: "query",
+          required: false,
+          schema: {
+            type: "string",
+            enum: ["CV_FEEDBACK", "CV_TRANSLATION", "CV_SCORING", "JOB_RECOMMENDATION"]
+          }
+        },
+        {
+          name: "status",
+          in: "query",
+          required: false,
+          schema: {
+            type: "string",
+            enum: ["PENDING", "COMPLETED", "FAILED"]
+          }
+        }
+      ],
+      responses: {
+        200: {
+          description: "AI results fetched successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/AiResultListResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse
+      }
+    }
+  },
+  "/api/ai/results/{id}": {
+    get: {
+      tags: ["AI"],
+      summary: "Get my AI result detail",
+      security: bearerSecurity,
+      parameters: [aiResultIdParameter],
+      responses: {
+        200: {
+          description: "AI result fetched successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/AiResultResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
   }
 };
 
@@ -615,6 +805,78 @@ const swaggerComponents = {
         updatedAt: {
           type: "string",
           format: "date-time"
+        }
+      }
+    },
+    AiCvRequest: {
+      type: "object",
+      properties: {
+        targetRole: {
+          type: "string",
+          example: "Backend Developer"
+        },
+        cvText: {
+          type: "string",
+          example: "Nguyen Van A\nBackend developer intern\nSkills: Node.js, Express, MongoDB..."
+        }
+      }
+    },
+    AiResult: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          example: "66a444444444444444444444"
+        },
+        accountId: {
+          type: "string",
+          example: "66a111111111111111111111"
+        },
+        cvDocumentId: {
+          type: "string",
+          example: "66a333333333333333333333"
+        },
+        relatedJobId: {
+          type: "string",
+          nullable: true,
+          example: null
+        },
+        aiType: {
+          type: "string",
+          enum: ["CV_FEEDBACK", "CV_TRANSLATION", "CV_SCORING", "JOB_RECOMMENDATION"],
+          example: "CV_FEEDBACK"
+        },
+        status: {
+          type: "string",
+          enum: ["PENDING", "COMPLETED", "FAILED"],
+          example: "COMPLETED"
+        },
+        inputText: {
+          type: "string",
+          example: "CV text used for AI processing..."
+        },
+        resultText: {
+          type: "string",
+          example: "{\"summary\":\"Mock CV feedback\",\"strengths\":[\"Clear technical skills\"]}"
+        },
+        score: {
+          type: "number",
+          nullable: true,
+          example: 78
+        },
+        errorMessage: {
+          type: "string",
+          nullable: true,
+          example: null
+        },
+        createdAt: {
+          type: "string",
+          format: "date-time"
+        },
+        completedAt: {
+          type: "string",
+          format: "date-time",
+          nullable: true
         }
       }
     },
@@ -888,6 +1150,49 @@ const swaggerComponents = {
                   type: "array",
                   items: {
                     $ref: "#/components/schemas/Cv"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    AiResultResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                aiResult: {
+                  $ref: "#/components/schemas/AiResult"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    AiResultListResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                aiResults: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/AiResult"
                   }
                 }
               }
