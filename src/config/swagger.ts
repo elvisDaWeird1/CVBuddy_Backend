@@ -34,6 +34,10 @@ const swaggerSpec = swaggerJSDoc({
       {
         name: "CV",
         description: "CV upload and management APIs"
+      },
+      {
+        name: "AI",
+        description: "AI CV feedback, scoring, translation, and result history APIs"
       }
     ],
     components: swaggerComponents,
