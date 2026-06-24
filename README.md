@@ -118,6 +118,34 @@ Expected response:
 }
 ```
 
+## API Documentation
+
+Run the backend:
+
+```bash
+npm run dev
+```
+
+Open Swagger UI:
+
+```txt
+http://localhost:5000/api/docs
+```
+
+Open OpenAPI JSON:
+
+```txt
+http://localhost:5000/api/docs.json
+```
+
+Test protected APIs:
+
+1. Call `POST /api/auth/login`.
+2. Copy token from response.
+3. Click Authorize in Swagger UI.
+4. Paste the JWT token.
+5. Test protected APIs.
+
 ## Phase 2 Authentication APIs
 
 Base URL:
