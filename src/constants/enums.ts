@@ -33,12 +33,18 @@ const AI_STATUSES = Object.freeze({
   FAILED: "FAILED"
 });
 
+const VISIBILITIES = Object.freeze({
+  PRIVATE: "PRIVATE",
+  PUBLIC: "PUBLIC"
+});
+
 const ACCOUNT_ROLE_VALUES = Object.values(ACCOUNT_ROLES);
 const ACCOUNT_STATUS_VALUES = Object.values(ACCOUNT_STATUSES);
 const CV_LANGUAGE_VALUES = Object.values(CV_LANGUAGES);
 const CV_STATUS_VALUES = Object.values(CV_STATUSES);
 const AI_TYPE_VALUES = Object.values(AI_TYPES);
 const AI_STATUS_VALUES = Object.values(AI_STATUSES);
+const VISIBILITY_VALUES = Object.values(VISIBILITIES);
 
 export {
   ACCOUNT_ROLES,
@@ -52,5 +58,7 @@ export {
   AI_TYPES,
   AI_TYPE_VALUES,
   AI_STATUSES,
-  AI_STATUS_VALUES
+  AI_STATUS_VALUES,
+  VISIBILITIES,
+  VISIBILITY_VALUES
 };

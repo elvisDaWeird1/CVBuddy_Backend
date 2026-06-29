@@ -349,6 +349,65 @@ Get AI result detail:
 GET /ai/results/:id
 ```
 
+## Phase 6 Portfolio & Mobile Photo APIs
+
+Portfolio endpoints use local storage for uploaded photos in `uploads/portfolio`.
+
+Applicant portfolio APIs require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+```
+
+Create my portfolio:
+
+```txt
+POST /portfolios
+```
+
+Get or update my portfolio:
+
+```txt
+GET /portfolios/me
+PATCH /portfolios/me
+```
+
+View a public portfolio:
+
+```txt
+GET /portfolios/public/:portfolioId
+```
+
+Create and manage my portfolio items:
+
+```txt
+POST /portfolio-items
+GET /portfolio-items/me
+GET /portfolio-items/:id
+PATCH /portfolio-items/:id
+DELETE /portfolio-items/:id
+```
+
+Upload a portfolio photo from mobile:
+
+```txt
+POST /mobile/portfolio/photos
+Content-Type: multipart/form-data
+```
+
+Form-data:
+
+```txt
+image: JPG, JPEG, PNG, or WEBP file
+title: Career Workshop Photo
+description: Photo from today's workshop
+eventName: Career Workshop 2026
+eventRole: Participant
+eventDate: 2026-06-20
+location: Can Tho
+visibility: PUBLIC
+```
+
 ## Environment Variables
 
 Example `.env`:

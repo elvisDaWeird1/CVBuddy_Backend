@@ -9,6 +9,8 @@ import authRoutes from "./modules/auth/auth.routes";
 import applicantProfileRoutes from "./modules/applicantProfiles/applicantProfile.routes";
 import cvRoutes from "./modules/cvs/cv.routes";
 import aiRoutes from "./modules/ai/ai.routes";
+import portfolioRoutes, { portfolioItemRouter } from "./modules/portfolios/portfolio.routes";
+import mobileRoutes from "./modules/mobile/mobile.routes";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 
 const app = express();
@@ -81,6 +83,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/applicant-profile", applicantProfileRoutes);
 app.use("/api/cvs", cvRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/portfolios", portfolioRoutes);
+app.use("/api/portfolio-items", portfolioItemRouter);
+app.use("/api/mobile", mobileRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
