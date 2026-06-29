@@ -35,23 +35,14 @@ Default backend stack:
 
 This project is currently coding the **MVP only**.
 
-The source of truth for MVP database design is:
+Current backend references:
 
-```txt
-MVP_Database.txt
-```
+- `docs/database.md` is the human-readable database reference.
+- Mongoose model/schema files are the implementation source for current database behavior.
+- `docs/api-contract.md` is the public API contract reference.
+- `BACKEND_MVP_PLAN.md` is a planning reference, not mandatory reading for every small task.
 
-Do not add models, fields, tables, APIs, or features from `Full_Database.txt` unless the user explicitly approves it.
-
-## Main Documents to Read
-
-Read these files before coding:
-
-1. `README.md`
-2. `BACKEND_MVP_PLAN.md`
-3. `MVP_Database.txt`
-4. `CVBuddy_RDS.docx`
-5. `Full_Database.txt`
+If older planning files such as `MVP_Database.txt`, `CVBuddy_RDS.docx`, or `Full_Database.txt` are added later, use them only for scope or schema decisions and reconcile them with the current code and docs.
 
 ## How to Run
 
@@ -431,18 +422,11 @@ AI_MODEL=
 
 Do not commit real `.env` values.
 
-## Coding Rules for Codex
+## Backend Agent Guidance
 
-- Do not expand outside MVP scope.
-- Do not change the database design without approval.
-- Do not add future/full-database models unless requested.
-- Keep model fields aligned with `MVP_Database.txt`.
-- Use modular structure: model, route, controller, service, validation, middleware.
-- Use JWT for protected APIs.
-- Use role-based access for Applicant, Company, and Admin APIs.
-- Treat AI output as suggestions only.
-- Keep API response format consistent.
-- Update documentation after coding.
+Detailed Codex guidance lives in `AGENTS.md`. Keep this README focused on human setup and API usage.
+
+For backend changes, preserve existing MVP contracts unless a task explicitly changes them: API paths, response format, schema fields, enum values, JWT behavior, upload behavior, and environment variable names.
 
 ## MVP Reminder
 
