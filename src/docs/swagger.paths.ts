@@ -48,6 +48,28 @@ const aiResultIdParameter = {
   }
 };
 
+const portfolioIdParameter = {
+  name: "portfolioId",
+  in: "path",
+  required: true,
+  description: "Portfolio id",
+  schema: {
+    type: "string",
+    example: "66a555555555555555555555"
+  }
+};
+
+const portfolioItemIdParameter = {
+  name: "id",
+  in: "path",
+  required: true,
+  description: "Portfolio item id",
+  schema: {
+    type: "string",
+    example: "66a666666666666666666666"
+  }
+};
+
 const swaggerPaths = {
   "/api/health": {
     get: {
@@ -623,6 +645,343 @@ const swaggerPaths = {
         404: errorResponse
       }
     }
+  },
+  "/api/portfolios": {
+    post: {
+      tags: ["Portfolio"],
+      summary: "Create my portfolio",
+      security: bearerSecurity,
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/CreatePortfolioRequest"
+            },
+            example: {
+              title: "Nguyen Van A Portfolio",
+              introduction: "A portfolio showing my projects and learning activities.",
+              visibility: "PRIVATE",
+              coverImageUrl: "https://example.com/cover.jpg"
+            }
+          }
+        }
+      },
+      responses: {
+        201: {
+          description: "Portfolio created successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PortfolioResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        409: errorResponse
+      }
+    }
+  },
+  "/api/portfolios/me": {
+    get: {
+      tags: ["Portfolio"],
+      summary: "Get my portfolio",
+      security: bearerSecurity,
+      responses: {
+        200: {
+          description: "Portfolio fetched successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PortfolioResponse"
+              }
+            }
+          }
+        },
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    },
+    patch: {
+      tags: ["Portfolio"],
+      summary: "Update my portfolio",
+      security: bearerSecurity,
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/UpdatePortfolioRequest"
+            },
+            example: {
+              title: "Updated Portfolio",
+              introduction: "Updated introduction",
+              visibility: "PUBLIC",
+              coverImageUrl: "https://example.com/new-cover.jpg"
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: "Portfolio updated successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PortfolioResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/portfolios/public/{portfolioId}": {
+    get: {
+      tags: ["Portfolio"],
+      summary: "Get public portfolio",
+      parameters: [portfolioIdParameter],
+      responses: {
+        200: {
+          description: "Public portfolio fetched successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PublicPortfolioResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/portfolio-items": {
+    post: {
+      tags: ["Portfolio"],
+      summary: "Create portfolio item",
+      security: bearerSecurity,
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/CreatePortfolioItemRequest"
+            },
+            example: {
+              title: "Career Workshop",
+              description: "I joined a career orientation workshop.",
+              imageUrl: "https://example.com/photo.jpg",
+              eventName: "Career Workshop 2026",
+              eventRole: "Participant",
+              eventDate: "2026-06-20",
+              location: "Can Tho",
+              visibility: "PUBLIC"
+            }
+          }
+        }
+      },
+      responses: {
+        201: {
+          description: "Portfolio item created successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PortfolioItemResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/portfolio-items/me": {
+    get: {
+      tags: ["Portfolio"],
+      summary: "Get my portfolio items",
+      security: bearerSecurity,
+      responses: {
+        200: {
+          description: "Portfolio items fetched successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PortfolioItemListResponse"
+              }
+            }
+          }
+        },
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/portfolio-items/{id}": {
+    get: {
+      tags: ["Portfolio"],
+      summary: "Get my portfolio item detail",
+      security: bearerSecurity,
+      parameters: [portfolioItemIdParameter],
+      responses: {
+        200: {
+          description: "Portfolio item fetched successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PortfolioItemResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    },
+    patch: {
+      tags: ["Portfolio"],
+      summary: "Update my portfolio item",
+      security: bearerSecurity,
+      parameters: [portfolioItemIdParameter],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/UpdatePortfolioItemRequest"
+            },
+            example: {
+              title: "Updated title",
+              description: "Updated description",
+              eventName: "Updated event",
+              eventRole: "Organizer",
+              eventDate: "2026-06-21",
+              location: "Ho Chi Minh City",
+              visibility: "PRIVATE"
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: "Portfolio item updated successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PortfolioItemResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    },
+    delete: {
+      tags: ["Portfolio"],
+      summary: "Delete my portfolio item",
+      security: bearerSecurity,
+      parameters: [portfolioItemIdParameter],
+      responses: {
+        200: {
+          description: "Portfolio item deleted successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/SuccessResponse"
+              },
+              example: {
+                success: true,
+                message: "Portfolio item deleted successfully"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/mobile/portfolio/photos": {
+    post: {
+      tags: ["Mobile"],
+      summary: "Upload photo from mobile app to portfolio",
+      security: bearerSecurity,
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["image"],
+              properties: {
+                image: {
+                  type: "string",
+                  format: "binary"
+                },
+                title: {
+                  type: "string"
+                },
+                description: {
+                  type: "string"
+                },
+                eventName: {
+                  type: "string"
+                },
+                eventRole: {
+                  type: "string"
+                },
+                eventDate: {
+                  type: "string",
+                  format: "date"
+                },
+                location: {
+                  type: "string"
+                },
+                visibility: {
+                  type: "string",
+                  enum: ["PRIVATE", "PUBLIC"]
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        201: {
+          description: "Photo uploaded to portfolio successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PortfolioItemResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse
+      }
+    }
   }
 };
 
@@ -877,6 +1236,202 @@ const swaggerComponents = {
           type: "string",
           format: "date-time",
           nullable: true
+        }
+      }
+    },
+    Portfolio: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          example: "66a555555555555555555555"
+        },
+        applicantProfileId: {
+          type: "string",
+          example: "66a222222222222222222222"
+        },
+        title: {
+          type: "string",
+          example: "Nguyen Van A Portfolio"
+        },
+        introduction: {
+          type: "string",
+          example: "A portfolio showing my projects and learning activities."
+        },
+        visibility: {
+          type: "string",
+          enum: ["PRIVATE", "PUBLIC"],
+          example: "PUBLIC"
+        },
+        coverImageUrl: {
+          type: "string",
+          example: "https://example.com/cover.jpg"
+        },
+        createdAt: {
+          type: "string",
+          format: "date-time"
+        },
+        updatedAt: {
+          type: "string",
+          format: "date-time"
+        }
+      }
+    },
+    PortfolioItem: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          example: "66a666666666666666666666"
+        },
+        portfolioId: {
+          type: "string",
+          example: "66a555555555555555555555"
+        },
+        title: {
+          type: "string",
+          example: "Career Workshop"
+        },
+        description: {
+          type: "string",
+          example: "I joined a career orientation workshop."
+        },
+        imageUrl: {
+          type: "string",
+          example: "/uploads/portfolio/career-workshop-1711111111111.jpg"
+        },
+        eventName: {
+          type: "string",
+          example: "Career Workshop 2026"
+        },
+        eventRole: {
+          type: "string",
+          example: "Participant"
+        },
+        eventDate: {
+          type: "string",
+          format: "date-time"
+        },
+        location: {
+          type: "string",
+          example: "Can Tho"
+        },
+        visibility: {
+          type: "string",
+          enum: ["PRIVATE", "PUBLIC"],
+          example: "PUBLIC"
+        },
+        createdFromMobile: {
+          type: "boolean",
+          example: true
+        },
+        createdAt: {
+          type: "string",
+          format: "date-time"
+        },
+        updatedAt: {
+          type: "string",
+          format: "date-time"
+        }
+      }
+    },
+    CreatePortfolioRequest: {
+      type: "object",
+      required: ["title"],
+      properties: {
+        title: {
+          type: "string"
+        },
+        introduction: {
+          type: "string"
+        },
+        visibility: {
+          type: "string",
+          enum: ["PRIVATE", "PUBLIC"]
+        },
+        coverImageUrl: {
+          type: "string"
+        }
+      }
+    },
+    UpdatePortfolioRequest: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string"
+        },
+        introduction: {
+          type: "string"
+        },
+        visibility: {
+          type: "string",
+          enum: ["PRIVATE", "PUBLIC"]
+        },
+        coverImageUrl: {
+          type: "string"
+        }
+      }
+    },
+    CreatePortfolioItemRequest: {
+      type: "object",
+      required: ["title"],
+      properties: {
+        title: {
+          type: "string"
+        },
+        description: {
+          type: "string"
+        },
+        imageUrl: {
+          type: "string"
+        },
+        eventName: {
+          type: "string"
+        },
+        eventRole: {
+          type: "string"
+        },
+        eventDate: {
+          type: "string",
+          format: "date"
+        },
+        location: {
+          type: "string"
+        },
+        visibility: {
+          type: "string",
+          enum: ["PRIVATE", "PUBLIC"]
+        }
+      }
+    },
+    UpdatePortfolioItemRequest: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string"
+        },
+        description: {
+          type: "string"
+        },
+        imageUrl: {
+          type: "string"
+        },
+        eventName: {
+          type: "string"
+        },
+        eventRole: {
+          type: "string"
+        },
+        eventDate: {
+          type: "string",
+          format: "date"
+        },
+        location: {
+          type: "string"
+        },
+        visibility: {
+          type: "string",
+          enum: ["PRIVATE", "PUBLIC"]
         }
       }
     },
@@ -1193,6 +1748,102 @@ const swaggerComponents = {
                   type: "array",
                   items: {
                     $ref: "#/components/schemas/AiResult"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    PortfolioResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                portfolio: {
+                  oneOf: [
+                    {
+                      type: "object"
+                    },
+                    {
+                      $ref: "#/components/schemas/Portfolio"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    PublicPortfolioResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                portfolio: {
+                  $ref: "#/components/schemas/Portfolio"
+                },
+                items: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/PortfolioItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    PortfolioItemResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                portfolioItem: {
+                  $ref: "#/components/schemas/PortfolioItem"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    PortfolioItemListResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                portfolioItems: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/PortfolioItem"
                   }
                 }
               }

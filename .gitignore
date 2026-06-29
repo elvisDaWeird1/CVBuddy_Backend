@@ -9,3 +9,14 @@ yarn-error.log*
 .codex-ts-dev*.log
 .DS_Store
 uploads/
+
+# AI agent / local workflow files
+.agents/
+.codex/
+.claude/
+.cursor/
+.trellis/workspace/
+.trellis/tasks/_drafts/
+.trellis/tasks/**/scratch.md
+.trellis/tasks/**/notes.local.md
+*.local.md

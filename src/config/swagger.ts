@@ -38,6 +38,14 @@ const swaggerSpec = swaggerJSDoc({
       {
         name: "AI",
         description: "AI CV feedback, scoring, translation, and result history APIs"
+      },
+      {
+        name: "Portfolio",
+        description: "Portfolio and portfolio item APIs"
+      },
+      {
+        name: "Mobile",
+        description: "Mobile photo sync APIs"
       }
     ],
     components: swaggerComponents,
