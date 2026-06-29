@@ -1,14 +1,28 @@
-﻿# Task
+# Task
 
 ## Goal
 
-Describe the requested backend change.
+One sentence describing the backend work.
 
 ## Scope
 
-- In scope:
-- Out of scope:
+In:
 
-## Constraints
+Out:
 
-- Preserve existing API contracts, schema behavior, and auth behavior unless explicitly requested.
+## Files touched
+
+-
+
+## Notes
+
+-
+
+## Validation
+
+- Command:
+- Result:
+
+## Follow-up
+
+-
