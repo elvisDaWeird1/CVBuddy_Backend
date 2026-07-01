@@ -64,10 +64,10 @@ On Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Set at least `MONGODB_URI` in `.env` before starting the server:
+Set at least `MONGO_URI` in `.env` before starting the server:
 
 ```txt
-MONGODB_URI=mongodb://127.0.0.1:27017/cvbuddy
+MONGO_URI=mongodb://127.0.0.1:27017/cvbuddy
 ```
 
 Run in development mode:
@@ -405,7 +405,7 @@ Example `.env`:
 
 ```txt
 PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/cvbuddy
+MONGO_URI=mongodb://127.0.0.1:27017/cvbuddy
 JWT_SECRET=change_me
 JWT_EXPIRES_IN=7d
 BCRYPT_SALT_ROUNDS=10
@@ -433,3 +433,4 @@ For backend changes, preserve existing MVP contracts unless a task explicitly ch
 Focus on building a clean, working backend MVP first.
 
 Future features such as OAuth, password reset, job approval, skill tables, CV versions, advanced moderation, audit logs, and AI matched candidates are not part of the current MVP unless explicitly approved.
+

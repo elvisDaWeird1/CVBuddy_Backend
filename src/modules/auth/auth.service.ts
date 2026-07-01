@@ -146,13 +146,13 @@ const login = async ({ email, password }) => {
   const account = await Account.findOne({ email: normalizedEmail }).select("+passwordHash");
 
   if (!account) {
-    throw new ApiError(401, "Invalid credentials");
+    throw new ApiError(401, "Not found account");
   }
 
   const passwordMatches = await bcrypt.compare(password, account.passwordHash);
 
   if (!passwordMatches) {
-    throw new ApiError(401, "Invalid credentials");
+    throw new ApiError(401, "Wrong password");
   }
 
   if (account.status !== ACCOUNT_STATUSES.ACTIVE) {
