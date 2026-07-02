@@ -1,21 +1,34 @@
-import { removeFileIfExists } from "../../utils/file";
-import { getStoredPortfolioImageUrl } from "../../middlewares/upload.middleware";
+import {
+  deleteCloudinaryResource,
+  uploadPortfolioPhoto as uploadPortfolioPhotoFile
+} from "../uploads/upload.service";
 import { createPortfolioItem } from "../portfolios/portfolio.service";
 
 const uploadPortfolioPhoto = async ({ accountId, file, payload }) => {
+  let uploadedFile: Awaited<ReturnType<typeof uploadPortfolioPhotoFile>> | undefined;
+
   try {
+    uploadedFile = await uploadPortfolioPhotoFile({ file });
+
     const portfolioItem = await createPortfolioItem(
       accountId,
       {
         ...payload,
-        imageUrl: getStoredPortfolioImageUrl(file.filename)
+        imageUrl: uploadedFile.url,
+        imagePublicId: uploadedFile.publicId
       },
       { createdFromMobile: true }
     );
 
     return portfolioItem;
   } catch (error) {
-    await removeFileIfExists(file?.path).catch(() => undefined);
+    if (uploadedFile) {
+      await deleteCloudinaryResource(
+        uploadedFile.publicId,
+        uploadedFile.resourceType
+      ).catch(() => undefined);
+    }
+
     throw error;
   }
 };

@@ -273,6 +273,9 @@ title: My Backend Developer CV
 language: VI or EN
 ```
 
+Uploaded CV files are stored in Cloudinary when Cloudinary environment variables
+are configured.
+
 Get my CV list:
 
 ```txt
@@ -342,7 +345,8 @@ GET /ai/results/:id
 
 ## Phase 6 Portfolio & Mobile Photo APIs
 
-Portfolio endpoints use local storage for uploaded photos in `uploads/portfolio`.
+Portfolio upload endpoints store uploaded photos in Cloudinary when Cloudinary
+environment variables are configured.
 
 Applicant portfolio APIs require an applicant JWT:
 
@@ -399,6 +403,54 @@ location: Can Tho
 visibility: PUBLIC
 ```
 
+## Upload APIs
+
+All upload endpoints require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+Upload and attach my avatar to the applicant profile:
+
+```txt
+POST /api/uploads/avatar
+```
+
+Form-data:
+
+```txt
+avatar: JPG, JPEG, PNG, or WEBP file
+```
+
+Upload a standalone portfolio photo:
+
+```txt
+POST /api/uploads/portfolio-photo
+```
+
+Form-data:
+
+```txt
+image: JPG, JPEG, PNG, or WEBP file
+```
+
+Upload a standalone CV file:
+
+```txt
+POST /api/uploads/cv
+```
+
+Form-data:
+
+```txt
+file: PDF or DOCX file
+```
+
+Each upload response includes the Cloudinary `url`/`secureUrl` and `publicId`.
+Cloudinary credentials belong only in the backend `.env`.
+
 ## Environment Variables
 
 Example `.env`:
@@ -410,10 +462,13 @@ JWT_SECRET=change_me
 JWT_EXPIRES_IN=7d
 BCRYPT_SALT_ROUNDS=10
 
-STORAGE_DRIVER=local
+STORAGE_DRIVER=cloudinary
 UPLOAD_DIR=uploads
 MAX_CV_FILE_SIZE_MB=10
 MAX_IMAGE_FILE_SIZE_MB=5
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 
 AI_PROVIDER=mock
 AI_API_KEY=

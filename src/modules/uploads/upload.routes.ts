@@ -1,0 +1,26 @@
+import express from "express";
+
+import { ACCOUNT_ROLES } from "../../constants/enums";
+import { authMiddleware } from "../../middlewares/auth.middleware";
+import { roleMiddleware } from "../../middlewares/role.middleware";
+import {
+  uploadAvatarImage,
+  uploadCv,
+  uploadPortfolioImage
+} from "../../middlewares/upload.middleware";
+import * as uploadController from "./upload.controller";
+
+const router = express.Router();
+
+router.use(authMiddleware);
+router.use(roleMiddleware(ACCOUNT_ROLES.APPLICANT));
+
+router.post("/avatar", uploadAvatarImage, uploadController.uploadAvatar);
+router.post(
+  "/portfolio-photo",
+  uploadPortfolioImage,
+  uploadController.uploadPortfolioPhoto
+);
+router.post("/cv", uploadCv, uploadController.uploadCv);
+
+export default router;

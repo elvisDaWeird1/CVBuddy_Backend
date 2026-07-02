@@ -11,6 +11,7 @@ export interface IApplicantProfile extends Document {
   summary?: string;
   careerGoal?: string;
   avatarUrl?: string;
+  avatarPublicId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +62,9 @@ const ApplicantProfileSchema = new mongoose.Schema<IApplicantProfile>(
       type: String
     },
     avatarUrl: {
+      type: String
+    },
+    avatarPublicId: {
       type: String
     }
   },

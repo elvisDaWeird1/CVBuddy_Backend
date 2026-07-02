@@ -11,6 +11,8 @@ export interface ICVDocument extends Document {
   applicantProfileId: Types.ObjectId;
   title: string;
   fileUrl: string;
+  filePublicId?: string;
+  fileResourceType?: string;
   fileType?: string;
   fileSize?: number;
   language: "VI" | "EN";
@@ -43,6 +45,13 @@ const CVDocumentSchema = new mongoose.Schema<ICVDocument>(
     fileUrl: {
       type: String,
       required: true
+    },
+    filePublicId: {
+      type: String
+    },
+    fileResourceType: {
+      type: String,
+      trim: true
     },
     fileType: {
       type: String,

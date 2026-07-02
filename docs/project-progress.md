@@ -12,7 +12,7 @@ What is implemented:
 - dotenv loading in `src/server.ts`.
 - CORS allowlist from defaults plus `CORS_ORIGIN` and `CLIENT_URL`.
 - JSON and URL-encoded body parsing.
-- Static upload serving from `/uploads`.
+- Static upload serving from `/uploads` remains mounted for legacy local files.
 - Health endpoint.
 - Swagger UI and OpenAPI JSON endpoints.
 
@@ -121,11 +121,11 @@ API routes:
 - `PATCH /api/applicant-profile/me`
 
 Notes / limitations:
-- Avatar is stored as `avatarUrl`; there is no avatar upload endpoint.
+- Avatar is stored as `avatarUrl` plus Cloudinary `avatarPublicId`; `POST /api/uploads/avatar` uploads and updates the applicant profile.
 - Applicant profile exists only when created during applicant registration.
 
 What still needs to be done:
-- Add upload support or broader profile fields only if explicitly requested.
+- Add broader profile fields only if explicitly requested.
 
 ## Company profile
 
@@ -158,12 +158,12 @@ Status: Partially done
 What is implemented:
 - Applicant-only CV upload using `multipart/form-data` field `file`.
 - Allowed CV files: PDF and DOCX by extension and MIME type.
-- Local file storage under `uploads/cvs` with safe generated names.
+- Cloudinary storage under `cvbuddy/cvs` using multer memory storage.
 - CV metadata stored in `cv_documents`.
 - List current applicant CVs.
 - Get current applicant CV detail.
 - Soft delete by setting status to `DELETED`.
-- Uploaded files are removed when CV creation fails after upload.
+- Uploaded Cloudinary resources are removed when CV creation fails after upload.
 
 Main files:
 - `src/modules/cvs/cv.routes.ts`
@@ -268,10 +268,10 @@ Status: Done
 What is implemented:
 - Applicant-only mobile photo upload endpoint.
 - Accepts image file field `image` for JPG, JPEG, PNG, or WEBP.
-- Stores files under `uploads/portfolio`.
+- Stores files in Cloudinary under `cvbuddy/portfolio`.
 - Creates a portfolio item with `createdFromMobile: true` and the stored image URL.
 - Auto-creates a private portfolio when needed.
-- Removes uploaded file if portfolio item creation fails.
+- Removes the uploaded Cloudinary resource if portfolio item creation fails.
 
 Main files:
 - `src/modules/mobile/mobile.routes.ts`
@@ -285,7 +285,7 @@ API routes:
 - `POST /api/mobile/portfolio/photos`
 
 Notes / limitations:
-- Local storage only; no cloud object storage integration.
+- Cloudinary object storage is integrated for uploaded portfolio photos.
 - No image resizing, moderation, or metadata extraction.
 
 What still needs to be done:
@@ -365,7 +365,7 @@ What is implemented:
 - Role-based access middleware.
 - CORS restrictions with allowed origins.
 - File upload validation for CVs and portfolio images.
-- Static serving for uploaded files.
+- Static serving for legacy local uploaded files.
 - Express request typing for `req.user` and `req.account`.
 
 Main files:
@@ -381,7 +381,7 @@ API routes:
 
 Notes / limitations:
 - No rate limiting, helmet/security headers, CSRF protection, request logging, or token revocation.
-- Uploaded files are publicly served under `/uploads`.
+- Legacy local uploaded files are publicly served under `/uploads`; new uploads use Cloudinary secure URLs.
 
 What still needs to be done:
 - Add additional production hardening only if required.
@@ -477,5 +477,4 @@ What still needs to be done:
 - `PROJECT_CONTEXT.md`, `docs/backend-mvp-plan.md`, `MVP_Database.txt`, `CVBuddy_RDS.docx`, and `Full_Database.txt` were not present in the repo during this inspection.
 - It is unclear whether Gemini integration is required immediately; code currently has only mock AI output despite AI environment variables.
 - It is unclear whether the planned company profile, jobs, applications, notifications, and feedback modules are still in current MVP priority.
-- It is unclear whether uploaded files should remain local/public or move to cloud storage later.
 - It is unclear whether logout should stay stateless or eventually revoke tokens.
