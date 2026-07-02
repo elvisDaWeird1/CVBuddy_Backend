@@ -64,6 +64,14 @@ CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 ```
 
+Backend decides Cloudinary folders by endpoint:
+
+- `POST /api/uploads/avatar` -> `cvbuddy/applicant-avatar`, public id `<userId>-avatar`.
+- `POST /api/uploads/portfolio-photo` -> `cvbuddy/portfolio`, public id `<userId>-<timestamp>`.
+- `POST /api/uploads/cv` -> `cvbuddy/cvs`, public id `<userId>-<timestamp>`.
+- `POST /api/cvs` -> `cvbuddy/cvs`, public id `<userId>-<timestamp>`.
+- `POST /api/mobile/portfolio/photos` -> `cvbuddy/portfolio`, public id `<userId>-<timestamp>`.
+
 Upload my avatar and update my applicant profile:
 
 ```txt
@@ -83,9 +91,9 @@ Success response:
   "success": true,
   "message": "Upload successful",
   "data": {
-    "url": "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/avatars/avatar.jpg",
-    "secureUrl": "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/avatars/avatar.jpg",
-    "publicId": "cvbuddy/avatars/avatar",
+    "url": "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/applicant-avatar/66a111111111111111111111-avatar.jpg",
+    "secureUrl": "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/applicant-avatar/66a111111111111111111111-avatar.jpg",
+    "publicId": "cvbuddy/applicant-avatar/66a111111111111111111111-avatar",
     "resourceType": "image",
     "format": "jpg",
     "bytes": 204800,

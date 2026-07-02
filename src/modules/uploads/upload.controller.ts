@@ -13,6 +13,7 @@ const uploadAvatar = asyncHandler(async (req, res) => {
 
 const uploadPortfolioPhoto = asyncHandler(async (req, res) => {
   const upload = await uploadService.uploadPortfolioPhoto({
+    accountId: req.user._id,
     file: req.file
   });
 
@@ -21,6 +22,7 @@ const uploadPortfolioPhoto = asyncHandler(async (req, res) => {
 
 const uploadCv = asyncHandler(async (req, res) => {
   const upload = await uploadService.uploadCvFile({
+    accountId: req.user._id,
     file: req.file
   });
 

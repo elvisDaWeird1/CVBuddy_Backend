@@ -901,8 +901,8 @@ const swaggerPaths = {
             example: {
               title: "Career Workshop",
               description: "I joined a career orientation workshop.",
-              imageUrl: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/career-workshop.jpg",
-              imagePublicId: "cvbuddy/portfolio/career-workshop",
+              imageUrl: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/66a111111111111111111111-1783000000000.jpg",
+              imagePublicId: "cvbuddy/portfolio/66a111111111111111111111-1783000000000",
               eventName: "Career Workshop 2026",
               eventRole: "Participant",
               eventDate: "2026-06-20",
@@ -1166,15 +1166,15 @@ const swaggerComponents = {
       properties: {
         url: {
           type: "string",
-          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/photo.jpg"
+          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/66a111111111111111111111-1783000000000.jpg"
         },
         secureUrl: {
           type: "string",
-          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/photo.jpg"
+          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/66a111111111111111111111-1783000000000.jpg"
         },
         publicId: {
           type: "string",
-          example: "cvbuddy/portfolio/photo"
+          example: "cvbuddy/portfolio/66a111111111111111111111-1783000000000"
         },
         resourceType: {
           type: "string",
@@ -1305,11 +1305,11 @@ const swaggerComponents = {
         },
         avatarUrl: {
           type: "string",
-          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/avatars/avatar.jpg"
+          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/applicant-avatar/66a111111111111111111111-avatar.jpg"
         },
         avatarPublicId: {
           type: "string",
-          example: "cvbuddy/avatars/avatar"
+          example: "cvbuddy/applicant-avatar/66a111111111111111111111-avatar"
         }
       }
     },
@@ -1330,11 +1330,11 @@ const swaggerComponents = {
         },
         fileUrl: {
           type: "string",
-          example: "https://res.cloudinary.com/demo/raw/upload/v1711111111/cvbuddy/cvs/my-backend-developer-cv.pdf"
+          example: "https://res.cloudinary.com/demo/raw/upload/v1711111111/cvbuddy/cvs/66a111111111111111111111-1783000000000.pdf"
         },
         filePublicId: {
           type: "string",
-          example: "cvbuddy/cvs/my-backend-developer-cv"
+          example: "cvbuddy/cvs/66a111111111111111111111-1783000000000"
         },
         fileResourceType: {
           type: "string",
@@ -1507,11 +1507,11 @@ const swaggerComponents = {
         },
         imageUrl: {
           type: "string",
-          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/career-workshop.jpg"
+          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/66a111111111111111111111-1783000000000.jpg"
         },
         imagePublicId: {
           type: "string",
-          example: "cvbuddy/portfolio/career-workshop"
+          example: "cvbuddy/portfolio/66a111111111111111111111-1783000000000"
         },
         eventName: {
           type: "string",

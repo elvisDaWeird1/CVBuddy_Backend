@@ -100,7 +100,7 @@ const createCv = async ({ accountId, file, payload }) => {
       extractedText = "";
     }
 
-    uploadedFile = await uploadCvFile({ file });
+    uploadedFile = await uploadCvFile({ accountId, file });
 
     const cv = await CVDocument.create({
       applicantProfileId: applicantProfile._id,

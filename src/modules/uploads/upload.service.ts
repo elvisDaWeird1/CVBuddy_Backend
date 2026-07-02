@@ -7,9 +7,9 @@ import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import { serializeApplicantProfile } from "../applicantProfiles/applicantProfile.service";
 
 const CLOUDINARY_FOLDERS = Object.freeze({
-  AVATARS: "cvbuddy/avatars",
+  APPLICANT_AVATAR: "cvbuddy/applicant-avatar",
   PORTFOLIO: "cvbuddy/portfolio",
-  CVS: "cvbuddy/cvs"
+  CV: "cvbuddy/cvs"
 });
 
 type CloudinaryResourceType = "image" | "video" | "raw" | "auto";
@@ -17,6 +17,8 @@ type CloudinaryResourceType = "image" | "video" | "raw" | "auto";
 type UploadFileOptions = {
   folder: string;
   resourceType: CloudinaryResourceType;
+  publicId: string;
+  overwrite?: boolean;
 };
 
 type UploadedFile = {
@@ -86,10 +88,10 @@ const uploadBufferToCloudinary = async (
 
   const uploadOptions: UploadApiOptions = {
     folder: options.folder,
+    public_id: options.publicId,
     resource_type: options.resourceType,
-    use_filename: true,
-    unique_filename: true,
-    overwrite: false
+    overwrite: Boolean(options.overwrite),
+    invalidate: Boolean(options.overwrite)
   };
 
   return new Promise<UploadedFile>((resolve, reject) => {
@@ -107,6 +109,14 @@ const uploadBufferToCloudinary = async (
 
     Readable.from(file.buffer).pipe(uploadStream);
   });
+};
+
+const toAccountIdString = (accountId) => {
+  return accountId?.toString();
+};
+
+const buildTimestampPublicId = (accountId) => {
+  return `${toAccountIdString(accountId)}-${Date.now()}`;
 };
 
 const deleteCloudinaryResource = async (
@@ -139,8 +149,10 @@ const uploadAvatar = async ({ accountId, file }) => {
 
   const previousPublicId = profile.avatarPublicId;
   const uploadedFile = await uploadBufferToCloudinary(file, {
-    folder: CLOUDINARY_FOLDERS.AVATARS,
-    resourceType: "image"
+    folder: CLOUDINARY_FOLDERS.APPLICANT_AVATAR,
+    resourceType: "image",
+    publicId: `${toAccountIdString(accountId)}-avatar`,
+    overwrite: true
   });
 
   try {
@@ -164,21 +176,23 @@ const uploadAvatar = async ({ accountId, file }) => {
   };
 };
 
-const uploadPortfolioPhoto = async ({ file }) => {
+const uploadPortfolioPhoto = async ({ accountId, file }) => {
   assertFile(file, "image");
 
   return uploadBufferToCloudinary(file, {
     folder: CLOUDINARY_FOLDERS.PORTFOLIO,
-    resourceType: "image"
+    resourceType: "image",
+    publicId: buildTimestampPublicId(accountId)
   });
 };
 
-const uploadCvFile = async ({ file }) => {
+const uploadCvFile = async ({ accountId, file }) => {
   assertFile(file, "file");
 
   return uploadBufferToCloudinary(file, {
-    folder: CLOUDINARY_FOLDERS.CVS,
-    resourceType: "auto"
+    folder: CLOUDINARY_FOLDERS.CV,
+    resourceType: "auto",
+    publicId: buildTimestampPublicId(accountId)
   });
 };
 
