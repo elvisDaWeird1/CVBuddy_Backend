@@ -7,6 +7,7 @@ export interface IPortfolioItem extends Document {
   title: string;
   description?: string;
   imageUrl?: string;
+  imagePublicId?: string;
   eventName?: string;
   eventRole?: string;
   eventDate?: Date;
@@ -40,6 +41,9 @@ const PortfolioItemSchema = new mongoose.Schema<IPortfolioItem>(
       type: String
     },
     imageUrl: {
+      type: String
+    },
+    imagePublicId: {
       type: String
     },
     eventName: {

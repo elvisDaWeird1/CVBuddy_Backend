@@ -358,6 +358,127 @@ const swaggerPaths = {
       }
     }
   },
+  "/api/uploads/avatar": {
+    post: {
+      tags: ["Upload"],
+      summary: "Upload my avatar and update my applicant profile",
+      security: bearerSecurity,
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["avatar"],
+              properties: {
+                avatar: {
+                  type: "string",
+                  format: "binary",
+                  description: "JPG, JPEG, PNG, or WEBP image file"
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        201: {
+          description: "Upload successful",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/AvatarUploadResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse
+      }
+    }
+  },
+  "/api/uploads/portfolio-photo": {
+    post: {
+      tags: ["Upload"],
+      summary: "Upload a standalone portfolio photo",
+      security: bearerSecurity,
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["image"],
+              properties: {
+                image: {
+                  type: "string",
+                  format: "binary",
+                  description: "JPG, JPEG, PNG, or WEBP image file"
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        201: {
+          description: "Upload successful",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/UploadResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse
+      }
+    }
+  },
+  "/api/uploads/cv": {
+    post: {
+      tags: ["Upload"],
+      summary: "Upload a standalone CV file",
+      security: bearerSecurity,
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["file"],
+              properties: {
+                file: {
+                  type: "string",
+                  format: "binary",
+                  description: "PDF or DOCX CV file"
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        201: {
+          description: "Upload successful",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/UploadResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse
+      }
+    }
+  },
   "/api/cvs": {
     post: {
       tags: ["CV"],
@@ -780,7 +901,8 @@ const swaggerPaths = {
             example: {
               title: "Career Workshop",
               description: "I joined a career orientation workshop.",
-              imageUrl: "https://example.com/photo.jpg",
+              imageUrl: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/career-workshop.jpg",
+              imagePublicId: "cvbuddy/portfolio/career-workshop",
               eventName: "Career Workshop 2026",
               eventRole: "Participant",
               eventDate: "2026-06-20",
@@ -1039,6 +1161,81 @@ const swaggerComponents = {
         }
       }
     },
+    UploadResult: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/photo.jpg"
+        },
+        secureUrl: {
+          type: "string",
+          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/photo.jpg"
+        },
+        publicId: {
+          type: "string",
+          example: "cvbuddy/portfolio/photo"
+        },
+        resourceType: {
+          type: "string",
+          example: "image"
+        },
+        format: {
+          type: "string",
+          example: "jpg"
+        },
+        bytes: {
+          type: "number",
+          example: 204800
+        },
+        originalFilename: {
+          type: "string",
+          example: "photo.jpg"
+        }
+      }
+    },
+    UploadResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              $ref: "#/components/schemas/UploadResult"
+            }
+          }
+        }
+      ]
+    },
+    AvatarUploadResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              allOf: [
+                {
+                  $ref: "#/components/schemas/UploadResult"
+                },
+                {
+                  type: "object",
+                  properties: {
+                    profile: {
+                      $ref: "#/components/schemas/ApplicantProfile"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
     Account: {
       type: "object",
       properties: {
@@ -1108,7 +1305,11 @@ const swaggerComponents = {
         },
         avatarUrl: {
           type: "string",
-          example: "https://example.com/avatar.jpg"
+          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/avatars/avatar.jpg"
+        },
+        avatarPublicId: {
+          type: "string",
+          example: "cvbuddy/avatars/avatar"
         }
       }
     },
@@ -1129,7 +1330,15 @@ const swaggerComponents = {
         },
         fileUrl: {
           type: "string",
-          example: "/uploads/cvs/my-backend-developer-cv-1711111111111.pdf"
+          example: "https://res.cloudinary.com/demo/raw/upload/v1711111111/cvbuddy/cvs/my-backend-developer-cv.pdf"
+        },
+        filePublicId: {
+          type: "string",
+          example: "cvbuddy/cvs/my-backend-developer-cv"
+        },
+        fileResourceType: {
+          type: "string",
+          example: "raw"
         },
         fileType: {
           type: "string",
@@ -1298,7 +1507,11 @@ const swaggerComponents = {
         },
         imageUrl: {
           type: "string",
-          example: "/uploads/portfolio/career-workshop-1711111111111.jpg"
+          example: "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/portfolio/career-workshop.jpg"
+        },
+        imagePublicId: {
+          type: "string",
+          example: "cvbuddy/portfolio/career-workshop"
         },
         eventName: {
           type: "string",
@@ -1385,6 +1598,9 @@ const swaggerComponents = {
         imageUrl: {
           type: "string"
         },
+        imagePublicId: {
+          type: "string"
+        },
         eventName: {
           type: "string"
         },
@@ -1414,6 +1630,9 @@ const swaggerComponents = {
           type: "string"
         },
         imageUrl: {
+          type: "string"
+        },
+        imagePublicId: {
           type: "string"
         },
         eventName: {

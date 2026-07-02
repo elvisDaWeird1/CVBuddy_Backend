@@ -102,6 +102,7 @@ const createPortfolioItemValidation = (req) => {
 
   validateOptionalString(errors, body, "description", 5000);
   validateOptionalString(errors, body, "imageUrl", 1000);
+  validateOptionalString(errors, body, "imagePublicId", 255);
   validateOptionalString(errors, body, "eventName", 150);
   validateOptionalString(errors, body, "eventRole", 150);
   validateOptionalDate(errors, body.eventDate);
@@ -122,6 +123,7 @@ const updatePortfolioItemValidation = (req) => {
   validateOptionalString(errors, body, "title", 150);
   validateOptionalString(errors, body, "description", 5000);
   validateOptionalString(errors, body, "imageUrl", 1000);
+  validateOptionalString(errors, body, "imagePublicId", 255);
   validateOptionalString(errors, body, "eventName", 150);
   validateOptionalString(errors, body, "eventRole", 150);
   validateOptionalDate(errors, body.eventDate);

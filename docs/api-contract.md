@@ -24,6 +24,9 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `PATCH /api/auth/change-password`
 - `GET /api/applicant-profile/me`
 - `PATCH /api/applicant-profile/me`
+- `POST /api/uploads/avatar`
+- `POST /api/uploads/portfolio-photo`
+- `POST /api/uploads/cv`
 - `POST /api/cvs`
 - `GET /api/cvs`
 - `GET /api/cvs/:id`
@@ -43,5 +46,98 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `PATCH /api/portfolio-items/:id`
 - `DELETE /api/portfolio-items/:id`
 - `POST /api/mobile/portfolio/photos`
+
+## Upload APIs
+
+All upload APIs require an Applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+Cloudinary credentials must be configured only on the backend:
+
+```txt
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+```
+
+Upload my avatar and update my applicant profile:
+
+```txt
+POST /api/uploads/avatar
+```
+
+Form-data:
+
+```txt
+avatar: JPG, JPEG, PNG, or WEBP file, max 5MB
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Upload successful",
+  "data": {
+    "url": "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/avatars/avatar.jpg",
+    "secureUrl": "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/avatars/avatar.jpg",
+    "publicId": "cvbuddy/avatars/avatar",
+    "resourceType": "image",
+    "format": "jpg",
+    "bytes": 204800,
+    "originalFilename": "avatar.jpg",
+    "profile": {}
+  }
+}
+```
+
+Upload a standalone portfolio photo:
+
+```txt
+POST /api/uploads/portfolio-photo
+```
+
+Form-data:
+
+```txt
+image: JPG, JPEG, PNG, or WEBP file, max 5MB
+```
+
+Upload a standalone CV file:
+
+```txt
+POST /api/uploads/cv
+```
+
+Form-data:
+
+```txt
+file: PDF or DOCX file, max 10MB
+```
+
+Common upload error:
+
+```json
+{
+  "success": false,
+  "message": "Only JPG, JPEG, PNG, and WEBP image files are allowed",
+  "errors": [
+    {
+      "field": "image",
+      "message": "File must be .jpg, .jpeg, .png, or .webp"
+    }
+  ]
+}
+```
+
+Existing feature upload routes also use Cloudinary:
+
+- `POST /api/cvs` stores `fileUrl`, `filePublicId`, and `fileResourceType` on the CV document.
+- `POST /api/mobile/portfolio/photos` stores `imageUrl` and `imagePublicId` on the created portfolio item.
+- `DELETE /api/cvs/:id` and `DELETE /api/portfolio-items/:id` delete the Cloudinary resource when a public id is available.
 
 Do not change these contracts without an explicit API task.
