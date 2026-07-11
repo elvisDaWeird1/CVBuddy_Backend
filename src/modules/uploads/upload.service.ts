@@ -1,10 +1,13 @@
+import path from "path";
 import { Readable } from "stream";
 import type { UploadApiOptions, UploadApiResponse } from "cloudinary";
 
 import cloudinary from "../../config/cloudinary.config";
+import { CV_STATUSES } from "../../constants/enums";
 import ApiError from "../../utils/apiError";
 import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import { serializeApplicantProfile } from "../applicantProfiles/applicantProfile.service";
+import CVDocument from "../cvs/cvDocument.model";
 
 const CLOUDINARY_FOLDERS = Object.freeze({
   APPLICANT_AVATAR: "cvbuddy/applicant-avatar",
@@ -19,6 +22,8 @@ type UploadFileOptions = {
   resourceType: CloudinaryResourceType;
   publicId: string;
   overwrite?: boolean;
+  filenameOverride?: string;
+  displayName?: string;
 };
 
 type UploadedFile = {
@@ -29,6 +34,9 @@ type UploadedFile = {
   format?: string;
   bytes?: number;
   originalFilename?: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
 };
 
 const getMissingCloudinaryEnvVars = () => {
@@ -65,10 +73,7 @@ const assertFile = (file: Express.Multer.File | undefined, field = "file") => {
   }
 };
 
-const toUploadedFile = (
-  result: UploadApiResponse,
-  fallbackOriginalFilename?: string
-): UploadedFile => {
+const toUploadedFile = (result: UploadApiResponse, file: Express.Multer.File): UploadedFile => {
   return {
     url: result.secure_url,
     secureUrl: result.secure_url,
@@ -76,8 +81,39 @@ const toUploadedFile = (
     resourceType: result.resource_type,
     format: result.format,
     bytes: result.bytes,
-    originalFilename: result.original_filename || fallbackOriginalFilename
+    originalFilename: result.original_filename || file.originalname,
+    originalName: file.originalname,
+    mimeType: file.mimetype,
+    size: file.size
   };
+};
+
+const getDisplayName = (originalname: string) => {
+  return originalname.replace(/[\\/]+/g, "-").trim() || "uploaded-file";
+};
+
+const getFileExtension = (originalname: string) => {
+  return path.extname(getDisplayName(originalname)).toLowerCase();
+};
+
+const sanitizePublicIdPart = (value: string, fallback = "file") => {
+  const sanitized = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return sanitized || fallback;
+};
+
+const getSafeCvPublicIdFilename = (originalname: string) => {
+  const displayName = getDisplayName(originalname);
+  const extension = getFileExtension(displayName);
+  const basename = path.basename(displayName, extension);
+
+  return `${sanitizePublicIdPart(basename, "cv")}${extension}`;
 };
 
 const uploadBufferToCloudinary = async (
@@ -91,7 +127,9 @@ const uploadBufferToCloudinary = async (
     public_id: options.publicId,
     resource_type: options.resourceType,
     overwrite: Boolean(options.overwrite),
-    invalidate: Boolean(options.overwrite)
+    invalidate: Boolean(options.overwrite),
+    filename_override: options.filenameOverride,
+    display_name: options.displayName
   };
 
   return new Promise<UploadedFile>((resolve, reject) => {
@@ -103,7 +141,7 @@ const uploadBufferToCloudinary = async (
           return;
         }
 
-        resolve(toUploadedFile(result, file.originalname));
+        resolve(toUploadedFile(result, file));
       }
     );
 
@@ -117,6 +155,23 @@ const toAccountIdString = (accountId) => {
 
 const buildTimestampPublicId = (accountId) => {
   return `${toAccountIdString(accountId)}-${Date.now()}`;
+};
+
+const buildCvPublicId = (accountId, originalname: string) => {
+  return `${buildTimestampPublicId(accountId)}-${getSafeCvPublicIdFilename(originalname)}`;
+};
+
+const getApplicantProfileForAccount = async (accountId) => {
+  const profile = await ApplicantProfile.findOne({ accountId });
+
+  if (!profile) {
+    throw new ApiError(
+      404,
+      "Applicant profile not found. Please register an applicant account first."
+    );
+  }
+
+  return profile;
 };
 
 const deleteCloudinaryResource = async (
@@ -138,14 +193,7 @@ const deleteCloudinaryResource = async (
 const uploadAvatar = async ({ accountId, file }) => {
   assertFile(file, "avatar");
 
-  const profile = await ApplicantProfile.findOne({ accountId });
-
-  if (!profile) {
-    throw new ApiError(
-      404,
-      "Applicant profile not found. Please register an applicant account first."
-    );
-  }
+  const profile = await getApplicantProfileForAccount(accountId);
 
   const previousPublicId = profile.avatarPublicId;
   const uploadedFile = await uploadBufferToCloudinary(file, {
@@ -191,14 +239,45 @@ const uploadCvFile = async ({ accountId, file }) => {
 
   return uploadBufferToCloudinary(file, {
     folder: CLOUDINARY_FOLDERS.CV,
-    resourceType: "auto",
-    publicId: buildTimestampPublicId(accountId)
+    resourceType: "raw",
+    publicId: buildCvPublicId(accountId, file.originalname),
+    filenameOverride: file.originalname,
+    displayName: getDisplayName(file.originalname)
   });
+};
+
+const buildFallbackDownloadName = (cv) => {
+  const fileType = cv.fileType ? `.${cv.fileType}` : "";
+  return `${sanitizePublicIdPart(cv.title || "cv", "cv")}${fileType || ".bin"}`;
+};
+
+const getMyCvDownload = async ({ accountId, cvId }) => {
+  const applicantProfile = await getApplicantProfileForAccount(accountId);
+
+  const cv = await CVDocument.findOne({
+    _id: cvId,
+    applicantProfileId: applicantProfile._id,
+    status: CV_STATUSES.ACTIVE
+  });
+
+  if (!cv) {
+    throw new ApiError(404, "CV not found");
+  }
+
+  return {
+    url: cv.fileUrl,
+    originalName: cv.originalName || buildFallbackDownloadName(cv),
+    mimeType: cv.mimeType || "application/octet-stream",
+    size: cv.size ?? cv.fileSize,
+    publicId: cv.filePublicId,
+    resourceType: cv.fileResourceType || "raw"
+  };
 };
 
 export {
   CLOUDINARY_FOLDERS,
   deleteCloudinaryResource,
+  getMyCvDownload,
   uploadAvatar,
   uploadBufferToCloudinary,
   uploadCvFile,

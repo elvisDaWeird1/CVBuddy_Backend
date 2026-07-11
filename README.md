@@ -268,13 +268,14 @@ Content-Type: multipart/form-data
 Form-data:
 
 ```txt
-file: PDF or DOCX file
+file: PDF, DOC, or DOCX file
 title: My Backend Developer CV
 language: VI or EN
 ```
 
 Uploaded CV files are stored in Cloudinary when Cloudinary environment variables
-are configured.
+are configured. Use `GET /api/uploads/cv/:id/download` to download a saved CV
+with its original filename and extension.
 
 Get my CV list:
 
@@ -445,11 +446,20 @@ POST /api/uploads/cv
 Form-data:
 
 ```txt
-file: PDF or DOCX file
+file: PDF, DOC, or DOCX file
 ```
 
 Each upload response includes the Cloudinary `url`/`secureUrl` and `publicId`.
 Cloudinary credentials belong only in the backend `.env`.
+
+Download a saved CV with its original filename:
+
+```txt
+GET /api/uploads/cv/:id/download
+```
+
+Use this endpoint instead of a direct Cloudinary URL when the UI needs the
+downloaded file to keep its original name and extension.
 
 ## Environment Variables
 

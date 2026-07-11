@@ -215,6 +215,7 @@ const swaggerPaths = {
     post: {
       tags: ["Auth"],
       summary: "Logout current account",
+      description: "Revokes the presented bearer token. Reusing it returns 401.",
       security: bearerSecurity,
       responses: {
         200: {
@@ -455,7 +456,7 @@ const swaggerPaths = {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "PDF or DOCX CV file"
+                  description: "PDF, DOC, or DOCX CV file"
                 }
               }
             }
@@ -479,6 +480,46 @@ const swaggerPaths = {
       }
     }
   },
+  "/api/uploads/cv/{id}/download": {
+    get: {
+      tags: ["Upload"],
+      summary: "Download my saved CV with its original filename",
+      security: bearerSecurity,
+      parameters: [cvIdParameter],
+      responses: {
+        200: {
+          description: "CV file download",
+          content: {
+            "application/octet-stream": {
+              schema: {
+                type: "string",
+                format: "binary"
+              }
+            }
+          },
+          headers: {
+            "Content-Disposition": {
+              schema: {
+                type: "string",
+                example: "attachment; filename*=UTF-8''Nguyen%20Van%20A%20CV.docx"
+              }
+            },
+            "Content-Type": {
+              schema: {
+                type: "string",
+                example: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse,
+        502: errorResponse
+      }
+    }
+  },
   "/api/cvs": {
     post: {
       tags: ["CV"],
@@ -495,7 +536,7 @@ const swaggerPaths = {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "PDF or DOCX CV file"
+                  description: "PDF, DOC, or DOCX CV file"
                 },
                 title: {
                   type: "string",
@@ -1191,6 +1232,18 @@ const swaggerComponents = {
         originalFilename: {
           type: "string",
           example: "photo.jpg"
+        },
+        originalName: {
+          type: "string",
+          example: "photo.jpg"
+        },
+        mimeType: {
+          type: "string",
+          example: "image/jpeg"
+        },
+        size: {
+          type: "number",
+          example: 204800
         }
       }
     },
@@ -1330,11 +1383,11 @@ const swaggerComponents = {
         },
         fileUrl: {
           type: "string",
-          example: "https://res.cloudinary.com/demo/raw/upload/v1711111111/cvbuddy/cvs/66a111111111111111111111-1783000000000.pdf"
+          example: "https://res.cloudinary.com/demo/raw/upload/v1711111111/cvbuddy/cvs/66a111111111111111111111-1783000000000-nguyen-van-a-cv.docx"
         },
         filePublicId: {
           type: "string",
-          example: "cvbuddy/cvs/66a111111111111111111111-1783000000000"
+          example: "cvbuddy/cvs/66a111111111111111111111-1783000000000-nguyen-van-a-cv.docx"
         },
         fileResourceType: {
           type: "string",
@@ -1342,11 +1395,23 @@ const swaggerComponents = {
         },
         fileType: {
           type: "string",
-          example: "pdf"
+          example: "docx"
         },
         fileSize: {
           type: "number",
-          example: 204800
+          example: 512000
+        },
+        originalName: {
+          type: "string",
+          example: "Nguyen Van A CV.docx"
+        },
+        mimeType: {
+          type: "string",
+          example: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        },
+        size: {
+          type: "number",
+          example: 512000
         },
         language: {
           type: "string",

@@ -157,8 +157,9 @@ Status: Partially done
 
 What is implemented:
 - Applicant-only CV upload using `multipart/form-data` field `file`.
-- Allowed CV files: PDF and DOCX by extension and MIME type.
-- Cloudinary storage under `cvbuddy/cvs` using multer memory storage.
+- Allowed CV files: PDF, DOC, and DOCX by extension and MIME type.
+- Cloudinary storage under `cvbuddy/cvs` using multer memory storage, `resource_type: raw`, and public ids that include the sanitized original filename extension.
+- CV documents store `originalName`, `mimeType`, and `size` for controlled downloads.
 - CV metadata stored in `cv_documents`.
 - List current applicant CVs.
 - Get current applicant CV detail.
@@ -179,6 +180,7 @@ API routes:
 - `GET /api/cvs`
 - `GET /api/cvs/:id`
 - `DELETE /api/cvs/:id`
+- `GET /api/uploads/cv/:id/download`
 
 Notes / limitations:
 - `extractTextFromCv` is a stub and always returns an empty string.

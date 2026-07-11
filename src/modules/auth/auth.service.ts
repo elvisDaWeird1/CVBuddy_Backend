@@ -9,6 +9,7 @@ import {
 import Account from "../accounts/account.model";
 import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import CompanyProfile from "../companyProfiles/companyProfile.model";
+import { revokeToken } from "./tokenRevocation.service";
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
 
@@ -165,6 +166,10 @@ const login = async ({ email, password }) => {
   };
 };
 
+const logout = async ({ token, expiresAt }) => {
+  await revokeToken(token, expiresAt);
+};
+
 const getCurrentAccount = async (accountId) => {
   const account = await Account.findById(accountId);
 
@@ -217,6 +222,7 @@ export {
   registerApplicant,
   registerCompany,
   login,
+  logout,
   getCurrentAccount,
   changePassword
 };
