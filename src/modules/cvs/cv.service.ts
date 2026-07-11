@@ -28,6 +28,9 @@ const serializeCv = (cv, options: SerializeCvOptions = {}) => {
     fileResourceType?: string;
     fileType: string;
     fileSize: number;
+    originalName?: string;
+    mimeType?: string;
+    size?: number;
     language: string;
     status: string;
     uploadedAt: Date;
@@ -54,6 +57,18 @@ const serializeCv = (cv, options: SerializeCvOptions = {}) => {
 
   if (cv.fileResourceType) {
     payload.fileResourceType = cv.fileResourceType;
+  }
+
+  if (cv.originalName) {
+    payload.originalName = cv.originalName;
+  }
+
+  if (cv.mimeType) {
+    payload.mimeType = cv.mimeType;
+  }
+
+  if (cv.size !== undefined) {
+    payload.size = cv.size;
   }
 
   if (options.includeExtractedText) {
@@ -100,7 +115,7 @@ const createCv = async ({ accountId, file, payload }) => {
       extractedText = "";
     }
 
-    uploadedFile = await uploadCvFile({ file });
+    uploadedFile = await uploadCvFile({ accountId, file });
 
     const cv = await CVDocument.create({
       applicantProfileId: applicantProfile._id,
@@ -110,6 +125,9 @@ const createCv = async ({ accountId, file, payload }) => {
       fileResourceType: uploadedFile.resourceType,
       fileType: getFileType(file),
       fileSize: uploadedFile.bytes || file.size,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
       language: payload.language || CV_LANGUAGES.VI,
       extractedText,
       status: CV_STATUSES.ACTIVE

@@ -15,6 +15,9 @@ export interface ICVDocument extends Document {
   fileResourceType?: string;
   fileType?: string;
   fileSize?: number;
+  originalName?: string;
+  mimeType?: string;
+  size?: number;
   language: "VI" | "EN";
   extractedText?: string;
   status: "ACTIVE" | "DELETED";
@@ -58,6 +61,17 @@ const CVDocumentSchema = new mongoose.Schema<ICVDocument>(
       trim: true
     },
     fileSize: {
+      type: Number
+    },
+    originalName: {
+      type: String,
+      trim: true
+    },
+    mimeType: {
+      type: String,
+      trim: true
+    },
+    size: {
       type: Number
     },
     language: {

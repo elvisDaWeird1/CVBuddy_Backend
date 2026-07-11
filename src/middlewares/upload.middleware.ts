@@ -3,9 +3,10 @@ import multer from "multer";
 
 import ApiError from "../utils/apiError";
 
-const ALLOWED_CV_EXTENSIONS = [".pdf", ".docx"];
+const ALLOWED_CV_EXTENSIONS = [".pdf", ".doc", ".docx"];
 const ALLOWED_CV_MIME_TYPES = [
   "application/pdf",
+  "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ];
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -34,10 +35,10 @@ const cvFileFilter = (req, file, cb) => {
 
   if (!hasAllowedExtension || !hasAllowedMimeType) {
     return cb(
-      new ApiError(400, "Only PDF and DOCX CV files are allowed", [
+      new ApiError(400, "Only PDF, DOC, and DOCX CV files are allowed", [
         {
           field: "file",
-          message: "File must be .pdf or .docx"
+          message: "File must be .pdf, .doc, or .docx"
         }
       ])
     );

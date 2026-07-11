@@ -8,6 +8,7 @@ Authentication uses JWT bearer tokens. `docs/api-contract.md` is the source of t
 - Login returns a JWT and serialized account.
 - Protected routes use `Authorization: Bearer <token>`.
 - `authMiddleware` verifies the token, loads the account, checks active status, and sets `req.user` and `req.account`.
+- Logout stores a SHA-256 hash of the presented token in `token_revocations` until the token expires; revoked tokens are rejected by `authMiddleware`.
 - `roleMiddleware` gates role-specific endpoints.
 
 ## Rules
