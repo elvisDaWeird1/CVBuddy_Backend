@@ -2,12 +2,14 @@ const successResponse = (
   res,
   message = "Action completed successfully",
   data?: unknown,
-  statusCode = 200
+  statusCode = 200,
+  pagination?: unknown
 ) => {
   const payload: {
     success: boolean;
     message: string;
     data?: unknown;
+    pagination?: unknown;
   } = {
     success: true,
     message
@@ -15,6 +17,10 @@ const successResponse = (
 
   if (data !== undefined) {
     payload.data = data;
+  }
+
+  if (pagination !== undefined) {
+    payload.pagination = pagination;
   }
 
   return res.status(statusCode).json(payload);

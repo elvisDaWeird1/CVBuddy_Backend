@@ -1,3 +1,5 @@
+import { portfolioSwaggerPaths, portfolioSwaggerSchemas } from "./portfolio.swagger";
+
 const errorResponse = {
   description: "Error response",
   content: {
@@ -982,7 +984,8 @@ const swaggerPaths = {
         403: errorResponse
       }
     }
-  }
+  },
+  ...portfolioSwaggerPaths
 };
 
 const swaggerComponents = {
@@ -1217,6 +1220,14 @@ const swaggerComponents = {
         resultText: {
           type: "string",
           example: "{\"summary\":\"Mock CV feedback\",\"strengths\":[\"Clear technical skills\"]}"
+        },
+        result: {
+          description: "Parsed structured result for detail/action responses; resultText remains for backward compatibility",
+          nullable: true,
+          oneOf: [
+            { type: "object" },
+            { type: "string" }
+          ]
         },
         score: {
           type: "number",
@@ -1851,7 +1862,8 @@ const swaggerComponents = {
           }
         }
       ]
-    }
+    },
+    ...portfolioSwaggerSchemas
   }
 };
 

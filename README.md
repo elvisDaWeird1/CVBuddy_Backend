@@ -408,6 +408,23 @@ location: Can Tho
 visibility: PUBLIC
 ```
 
+## Portfolio Domain APIs
+
+The current Portfolio domain is available under `/api/portfolio` and uses Applicant JWT ownership. It models the flow `Moment -> Experience -> Portfolio`; clients never send `applicantId`.
+
+Profile routes:
+
+```txt
+GET   /api/portfolio/me
+PUT   /api/portfolio/me
+PATCH /api/portfolio/me/publish
+PATCH /api/portfolio/me/unpublish
+PUT   /api/portfolio/me/featured-experiences
+GET   /api/portfolio/public/:slug
+```
+
+Experience, Moment, and Evidence routes are documented in `docs/api-contract.md` and `docs/portfolio-backend-handoff.local.md`. Moment creation uses `multipart/form-data` with one to five `media` files and a required `capturedAt` field. Cloudinary credentials are required for the new media/evidence/cover upload flow.
+
 ## Environment Variables
 
 Example `.env`:
