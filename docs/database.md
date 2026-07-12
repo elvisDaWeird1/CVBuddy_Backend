@@ -7,9 +7,10 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 ## Collections And Fields
 
 - `Account` -> `accounts`: email, passwordHash, role, status, createdAt, updatedAt.
-- `ApplicantProfile` -> `applicant_profiles`: accountId, fullName, phone, university, major, location, headline, summary, careerGoal, avatarUrl, createdAt, updatedAt.
+- `TokenRevocation` -> `token_revocations`: tokenHash, expiresAt, createdAt. MongoDB automatically removes expired records through a TTL index on `expiresAt`.
+- `ApplicantProfile` -> `applicant_profiles`: accountId, fullName, phone, university, major, location, headline, summary, careerGoal, avatarUrl, avatarPublicId, createdAt, updatedAt.
 - `CompanyProfile` -> `company_profiles`: accountId, companyName, industry, websiteUrl, logoUrl, description, address, contactEmail, contactPhone, createdAt, updatedAt.
-- `CVDocument` -> `cv_documents`: applicantProfileId, title, fileUrl, fileType, fileSize, language, extractedText, status, uploadedAt, createdAt, updatedAt.
+- `CVDocument` -> `cv_documents`: applicantProfileId, title, fileUrl, filePublicId, fileResourceType, fileType, fileSize, originalName, mimeType, size, language, extractedText, status, uploadedAt, createdAt, updatedAt.
 - `AIResult` -> `ai_results`: accountId, cvDocumentId, relatedJobId, aiType, status, inputText, resultText, score, errorMessage, createdAt, completedAt.
 - `LegacyPortfolio` -> `portfolios` (compatibility): applicantProfileId, title, introduction, visibility, coverImageUrl, createdAt, updatedAt.
 - `PortfolioItem` -> `portfolio_items`: portfolioId, title, description, imageUrl, eventName, eventRole, eventDate, location, visibility, createdFromMobile, createdAt, updatedAt.

@@ -12,6 +12,7 @@ import aiRoutes from "./modules/ai/ai.routes";
 import legacyPortfolioRoutes, { portfolioItemRouter } from "./modules/portfolios/portfolio.routes";
 import portfolioDomainRoutes from "./modules/portfolios/portfolioDomain.routes";
 import mobileRoutes from "./modules/mobile/mobile.routes";
+import uploadRoutes from "./modules/uploads/upload.routes";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 
 const app = express();
@@ -83,6 +84,7 @@ app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/applicant-profile", applicantProfileRoutes);
 app.use("/api/cvs", cvRoutes);
+app.use("/api/uploads", uploadRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/portfolio", portfolioDomainRoutes);
 app.use("/api/portfolios", legacyPortfolioRoutes);

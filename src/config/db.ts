@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 
 const connectDB = async () => {
-  const mongoUri = process.env.MONGODB_URI;
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
   if (!mongoUri) {
-    throw new Error("MONGODB_URI is not configured. Set it in your .env file.");
+    throw new Error("MONGO_URI is not configured. Set it in your environment.");
   }
 
   try {
@@ -20,3 +20,4 @@ const connectDB = async () => {
 };
 
 export default connectDB;
+

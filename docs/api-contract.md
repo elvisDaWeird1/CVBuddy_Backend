@@ -24,6 +24,10 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `PATCH /api/auth/change-password`
 - `GET /api/applicant-profile/me`
 - `PATCH /api/applicant-profile/me`
+- `POST /api/uploads/avatar`
+- `POST /api/uploads/portfolio-photo`
+- `POST /api/uploads/cv`
+- `GET /api/uploads/cv/:id/download`
 - `POST /api/cvs`
 - `GET /api/cvs`
 - `GET /api/cvs/:id`
@@ -71,7 +75,7 @@ The current portfolio domain uses `/api/portfolio`. All private endpoints requir
 
 ### Moments
 
-- `POST /api/portfolio/moments` (multipart `media`, 1–5 files; `capturedAt` is required)
+- `POST /api/portfolio/moments` (multipart `media`, 1ï¿½5 files; `capturedAt` is required)
 - `GET /api/portfolio/moments`
 - `GET /api/portfolio/moments/:id`
 - `PATCH /api/portfolio/moments/:id`

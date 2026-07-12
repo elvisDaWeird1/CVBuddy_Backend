@@ -18,6 +18,11 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const logout = asyncHandler(async (req, res) => {
+  await authService.logout({
+    token: req.authToken,
+    expiresAt: req.authTokenExpiresAt
+  });
+
   return successResponse(res, "Logout successful");
 });
 

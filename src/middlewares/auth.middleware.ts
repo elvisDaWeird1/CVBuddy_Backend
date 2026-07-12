@@ -3,6 +3,7 @@ import asyncHandler from "../utils/asyncHandler";
 import { verifyAuthToken } from "../utils/jwt";
 import { ACCOUNT_STATUSES } from "../constants/enums";
 import Account from "../modules/accounts/account.model";
+import { isTokenRevoked } from "../modules/auth/tokenRevocation.service";
 
 const getBearerToken = (authorizationHeader) => {
   if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
@@ -27,6 +28,18 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, "Invalid or expired token");
   }
 
+  const tokenExpiresAt = payload.exp
+    ? new Date(payload.exp * 1000)
+    : null;
+
+  if (!payload.accountId || !tokenExpiresAt || Number.isNaN(tokenExpiresAt.getTime())) {
+    throw new ApiError(401, "Invalid or expired token");
+  }
+
+  if (await isTokenRevoked(token)) {
+    throw new ApiError(401, "Invalid or expired token");
+  }
+
   const account = await Account.findById(payload.accountId);
 
   if (!account) {
@@ -39,6 +52,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
 
   req.user = account;
   req.account = account;
+  req.authToken = token;
+  req.authTokenExpiresAt = tokenExpiresAt;
   next();
 });
 

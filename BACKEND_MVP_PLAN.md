@@ -1,5 +1,7 @@
 # CVBuddy Backend MVP Plan
 
+> Note: This document is a historical/planning reference for MVP scope and phase work. For current Codex read order and coding discipline, use `AGENTS.md`. For implemented API behavior, use `docs/api-contract.md` plus current routes/controllers. For database behavior, use `docs/database.md` plus current Mongoose models. Planned modules in this file should not be treated as implemented or required unless a task explicitly asks for them.
+
 ## 1. Purpose
 
 This document is the main backend implementation plan for **CVBuddy MVP**.
@@ -17,21 +19,17 @@ The backend must focus on the **MVP scope only**. Do not expand into the full fu
 
 ---
 
-## 2. Main Documents Codex Must Read First
+## 2. Current Reference Order
 
-Before coding, read these files in this order:
+For routine backend work, use `AGENTS.md` as the main Codex entry point. Do not read this full plan for every small task.
 
-1. `README.md`
-2. `BACKEND_MVP_PLAN.md`
-3. `MVP_Database.txt`
-4. `CVBuddy_RDS.docx`
-5. `Full_Database.txt`
+Use these references conditionally:
 
-Important rule:
+1. `docs/api-contract.md` for API behavior, endpoint, Swagger, or frontend/backend integration tasks.
+2. `docs/database.md` and current Mongoose models for schema, model, enum, index, and relationship tasks.
+3. Relevant sections of this plan for large feature work, phase planning, or MVP scope questions.
 
-- `MVP_Database.txt` is the source of truth for current backend models and database design.
-- `Full_Database.txt` is for future expansion only.
-- Do not add fields, tables, models, or features from `Full_Database.txt` into MVP unless the user explicitly approves it.
+Older planning files such as `MVP_Database.txt`, `CVBuddy_RDS.docx`, and `Full_Database.txt` are not required routine context in the current repo. If they are added later, use them only for scope/schema decisions and reconcile them with current docs and source code.
 
 ---
 
@@ -39,7 +37,7 @@ Important rule:
 
 Codex must follow these rules:
 
-1. Do not code outside the MVP scope.
+1. Do not code outside the MVP scope or implement planned/future modules unless the task explicitly asks for them.
 2. Do not change the database design without explaining the reason and asking for approval.
 3. Do not rename models, fields, enums, or relationships from the MVP database unless technically necessary.
 4. If the existing project already has a backend structure, keep it and adapt this plan to the current structure.
@@ -229,7 +227,7 @@ const APPLICATION_STATUSES = [
 const NOTIFICATION_STATUSES = ["UNREAD", "READ"];
 ```
 
-Use uppercase enum values exactly as defined in `MVP_Database.txt`.
+Use uppercase enum values from `src/constants/enums.ts` and keep `docs/database.md` aligned with the implemented Mongoose models.
 
 ---
 
@@ -1667,6 +1665,6 @@ Backend MVP is complete when:
 
 The current goal is not to build the entire CVBuddy platform.
 
-The current goal is to build a clean, working, testable backend MVP based on `MVP_Database.txt`.
+The current goal is to build a clean, working, testable backend MVP based on current source code, `docs/api-contract.md`, and `docs/database.md`.
 
 Keep the code simple, modular, and aligned with the approved MVP database.

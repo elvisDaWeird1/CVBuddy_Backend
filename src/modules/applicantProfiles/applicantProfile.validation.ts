@@ -12,6 +12,7 @@ const ALLOWED_PROFILE_FIELDS = [
 
 const FORBIDDEN_PROFILE_FIELDS = [
   "accountId",
+  "avatarPublicId",
   "role",
   "status",
   "password",
