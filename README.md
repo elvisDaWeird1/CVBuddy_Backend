@@ -404,62 +404,22 @@ location: Can Tho
 visibility: PUBLIC
 ```
 
-## Upload APIs
+## Portfolio Domain APIs
 
-All upload endpoints require an applicant JWT:
+The current Portfolio domain is available under `/api/portfolio` and uses Applicant JWT ownership. It models the flow `Moment -> Experience -> Portfolio`; clients never send `applicantId`.
 
-```txt
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-```
-
-Upload and attach my avatar to the applicant profile:
+Profile routes:
 
 ```txt
-POST /api/uploads/avatar
+GET   /api/portfolio/me
+PUT   /api/portfolio/me
+PATCH /api/portfolio/me/publish
+PATCH /api/portfolio/me/unpublish
+PUT   /api/portfolio/me/featured-experiences
+GET   /api/portfolio/public/:slug
 ```
 
-Form-data:
-
-```txt
-avatar: JPG, JPEG, PNG, or WEBP file
-```
-
-Upload a standalone portfolio photo:
-
-```txt
-POST /api/uploads/portfolio-photo
-```
-
-Form-data:
-
-```txt
-image: JPG, JPEG, PNG, or WEBP file
-```
-
-Upload a standalone CV file:
-
-```txt
-POST /api/uploads/cv
-```
-
-Form-data:
-
-```txt
-file: PDF, DOC, or DOCX file
-```
-
-Each upload response includes the Cloudinary `url`/`secureUrl` and `publicId`.
-Cloudinary credentials belong only in the backend `.env`.
-
-Download a saved CV with its original filename:
-
-```txt
-GET /api/uploads/cv/:id/download
-```
-
-Use this endpoint instead of a direct Cloudinary URL when the UI needs the
-downloaded file to keep its original name and extension.
+Experience, Moment, and Evidence routes are documented in `docs/api-contract.md` and `docs/portfolio-backend-handoff.local.md`. Moment creation uses `multipart/form-data` with one to five `media` files and a required `capturedAt` field. Cloudinary credentials are required for the new media/evidence/cover upload flow.
 
 ## Environment Variables
 

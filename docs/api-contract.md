@@ -1,4 +1,4 @@
-﻿# API Contract
+# API Contract
 
 This document is the source of truth for intended public CVBuddy backend API behavior and response contracts. `src/docs/swagger.paths.ts` is the implementation source used to generate Swagger/OpenAPI documentation and should stay aligned with this file.
 
@@ -48,134 +48,61 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `DELETE /api/portfolio-items/:id`
 - `POST /api/mobile/portfolio/photos`
 
-## Logout Behavior
+## Portfolio Domain APIs
 
-Logout revokes the presented bearer token on the server. Reusing that token on a protected endpoint returns `401`.
+The current portfolio domain uses `/api/portfolio`. All private endpoints require an Applicant JWT; ownership is derived from the authenticated account and clients must not send `applicantId`.
 
-## Upload APIs
+### Portfolio profile
 
-All upload APIs require an Applicant JWT:
+- `GET /api/portfolio/me`
+- `PUT /api/portfolio/me`
+- `PATCH /api/portfolio/me/publish`
+- `PATCH /api/portfolio/me/unpublish`
+- `PUT /api/portfolio/me/featured-experiences`
+- `GET /api/portfolio/public/:slug` (public, only when `isPublic` is true)
 
-```txt
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-```
+### Experiences
 
-Cloudinary credentials must be configured only on the backend:
+- `POST /api/portfolio/experiences`
+- `GET /api/portfolio/experiences?page=1&limit=20&status=draft&type=project&search=node`
+- `GET /api/portfolio/experiences/:id`
+- `PATCH /api/portfolio/experiences/:id`
+- `DELETE /api/portfolio/experiences/:id`
+- `PATCH /api/portfolio/experiences/:id/publish`
+- `PATCH /api/portfolio/experiences/:id/archive`
+- `PATCH /api/portfolio/experiences/:id/cover` (JSON `assetId` or multipart `cover`)
+- `POST /api/portfolio/experiences/:id/cover` (compatibility alias for cover update)
 
-```txt
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-```
+### Moments
 
-Backend decides Cloudinary folders by endpoint:
+- `POST /api/portfolio/moments` (multipart `media`, 1�5 files; `capturedAt` is required)
+- `GET /api/portfolio/moments`
+- `GET /api/portfolio/moments/:id`
+- `PATCH /api/portfolio/moments/:id`
+- `DELETE /api/portfolio/moments/:id`
+- `PATCH /api/portfolio/moments/:id/assign-experience`
+- `PATCH /api/portfolio/moments/:id/unassign-experience`
 
-- `POST /api/uploads/avatar` -> `cvbuddy/applicant-avatar`, public id `<userId>-avatar`.
-- `POST /api/uploads/portfolio-photo` -> `cvbuddy/portfolio`, public id `<userId>-<timestamp>`.
-- `POST /api/uploads/cv` -> `cvbuddy/cvs`, public id `<userId>-<timestamp>-<original-file-name.ext>`, `resource_type: "raw"`.
-- `POST /api/cvs` -> `cvbuddy/cvs`, public id `<userId>-<timestamp>-<original-file-name.ext>`, `resource_type: "raw"`.
-- `POST /api/mobile/portfolio/photos` -> `cvbuddy/portfolio`, public id `<userId>-<timestamp>`.
+### Evidence
 
-Upload my avatar and update my applicant profile:
+- `POST /api/portfolio/experiences/:experienceId/evidence` (JSON URL or multipart `file`)
+- `GET /api/portfolio/experiences/:experienceId/evidence`
+- `PATCH /api/portfolio/evidence/:id`
+- `DELETE /api/portfolio/evidence/:id`
 
-```txt
-POST /api/uploads/avatar
-```
-
-Form-data:
-
-```txt
-avatar: JPG, JPEG, PNG, or WEBP file, max 5MB
-```
-
-Success response:
-
-```json
-{
-  "success": true,
-  "message": "Upload successful",
-  "data": {
-    "url": "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/applicant-avatar/66a111111111111111111111-avatar.jpg",
-    "secureUrl": "https://res.cloudinary.com/demo/image/upload/v1711111111/cvbuddy/applicant-avatar/66a111111111111111111111-avatar.jpg",
-    "publicId": "cvbuddy/applicant-avatar/66a111111111111111111111-avatar",
-    "resourceType": "image",
-    "format": "jpg",
-    "bytes": 204800,
-    "originalFilename": "avatar.jpg",
-    "profile": {}
-  }
-}
-```
-
-Upload a standalone portfolio photo:
-
-```txt
-POST /api/uploads/portfolio-photo
-```
-
-Form-data:
-
-```txt
-image: JPG, JPEG, PNG, or WEBP file, max 5MB
-```
-
-Upload a standalone CV file:
-
-```txt
-POST /api/uploads/cv
-```
-
-Form-data:
-
-```txt
-file: PDF, DOC, or DOCX file, max 10MB
-```
-
-CV uploads also return and store metadata for download:
-
-```json
-{
-  "originalName": "Nguyen Van A CV.docx",
-  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "size": 512000,
-  "publicId": "cvbuddy/cvs/66a111111111111111111111-1783000000000-nguyen-van-a-cv.docx",
-  "resourceType": "raw"
-}
-```
-
-Download a saved CV with original filename:
-
-```txt
-GET /api/uploads/cv/:id/download
-```
-
-This endpoint requires an Applicant JWT, checks ownership against the saved CV document, proxies the Cloudinary file through backend, and sets:
-
-```http
-Content-Disposition: attachment; filename*=UTF-8''<encoded originalName>
-Content-Type: <saved mimeType or application/octet-stream>
-```
-
-Common upload error:
-
-```json
-{
-  "success": false,
-  "message": "Only JPG, JPEG, PNG, and WEBP image files are allowed",
-  "errors": [
-    {
-      "field": "image",
-      "message": "File must be .jpg, .jpeg, .png, or .webp"
-    }
-  ]
-}
-```
-
-Existing feature upload routes also use Cloudinary:
-
-- `POST /api/cvs` stores `fileUrl`, `filePublicId`, and `fileResourceType` on the CV document.
-- `POST /api/mobile/portfolio/photos` stores `imageUrl` and `imagePublicId` on the created portfolio item.
-- `DELETE /api/cvs/:id` and `DELETE /api/portfolio-items/:id` delete the Cloudinary resource when a public id is available.
+The legacy `/api/portfolios`, `/api/portfolio-items`, and `/api/mobile/portfolio/photos` routes remain mounted for existing clients. New clients should use the domain routes above.
 
 Do not change these contracts without an explicit API task.
+
+## AI service integration
+
+- The existing `/api/ai/cvs/:cvId/feedback`, `/score`, and `/translate-to-english` routes keep their public paths and response wrapper.
+- Their optional request body may include `industrySlug`, `verticalSlug`, `companyModel`, `language`, `tier`, `jdExtract`, `llmModel`, `extractionMode`, and `strictIndustryMatch`; legacy `targetRole` and `cvText` remain accepted.
+- The Node backend calls the independent FastAPI service configured by `AI_SERVICE_URL`; clients never call FastAPI directly.
+- See `docs/ai-service-integration.md` for the internal request mapping and error behavior.
+
+### AI result representation
+
+- Action and detail AI responses include data.aiResult.result as the parsed structured result when resultText contains JSON.
+- data.aiResult.resultText remains available for backward compatibility.
+- Legacy non-JSON resultText is returned as a string in data.aiResult.result; list responses continue to omit detailed result fields.

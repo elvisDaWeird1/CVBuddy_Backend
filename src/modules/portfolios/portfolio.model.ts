@@ -1,63 +1,76 @@
 import mongoose, { Document, Types } from "mongoose";
 
-import { VISIBILITIES, VISIBILITY_VALUES } from "../../constants/enums";
-
 export interface IPortfolio extends Document {
-  applicantProfileId: Types.ObjectId;
-  title: string;
-  introduction?: string;
-  visibility: "PRIVATE" | "PUBLIC";
-  coverImageUrl?: string;
+  applicantId: Types.ObjectId;
+  headline?: string;
+  about?: string;
+  desiredRole?: string;
+  slug: string;
+  isPublic: boolean;
+  skills: string[];
+  socialLinks: Record<string, string>;
+  featuredExperienceIds: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-const transformPortfolio = (doc, ret) => {
-  ret.id = ret._id.toString();
-  delete ret._id;
-  delete ret.__v;
-  return ret;
-};
-
 const PortfolioSchema = new mongoose.Schema<IPortfolio>(
   {
-    applicantProfileId: {
+    applicantId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "ApplicantProfile",
+      ref: "Account",
       required: true
     },
-    title: {
+    headline: {
       type: String,
-      required: true,
       trim: true
     },
-    introduction: {
-      type: String
-    },
-    visibility: {
+    about: {
       type: String,
-      enum: VISIBILITY_VALUES,
-      default: VISIBILITIES.PRIVATE,
+      trim: true
+    },
+    desiredRole: {
+      type: String,
+      trim: true
+    },
+    slug: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+      match: /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+    },
+    isPublic: {
+      type: Boolean,
+      default: false,
       required: true
     },
-    coverImageUrl: {
-      type: String
+    skills: {
+      type: [String],
+      default: []
+    },
+    socialLinks: {
+      type: Object,
+      default: {}
+    },
+    featuredExperienceIds: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "PortfolioExperience",
+      default: [],
+      validate: {
+        validator: (value: Types.ObjectId[]) => value.length <= 6,
+        message: "featuredExperienceIds cannot contain more than 6 experiences"
+      }
     }
   },
   {
     collection: "portfolios",
-    timestamps: true,
-    toJSON: {
-      transform: transformPortfolio
-    },
-    toObject: {
-      transform: transformPortfolio
-    }
+    timestamps: true
   }
 );
 
-PortfolioSchema.index({ applicantProfileId: 1 }, { unique: true });
-PortfolioSchema.index({ visibility: 1 });
+PortfolioSchema.index({ applicantId: 1 }, { unique: true, sparse: true });
+PortfolioSchema.index({ slug: 1 }, { unique: true, sparse: true });
 
 const Portfolio = mongoose.model<IPortfolio>("Portfolio", PortfolioSchema);
 

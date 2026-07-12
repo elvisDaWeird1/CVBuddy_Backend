@@ -12,8 +12,13 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 - `CompanyProfile` -> `company_profiles`: accountId, companyName, industry, websiteUrl, logoUrl, description, address, contactEmail, contactPhone, createdAt, updatedAt.
 - `CVDocument` -> `cv_documents`: applicantProfileId, title, fileUrl, filePublicId, fileResourceType, fileType, fileSize, originalName, mimeType, size, language, extractedText, status, uploadedAt, createdAt, updatedAt.
 - `AIResult` -> `ai_results`: accountId, cvDocumentId, relatedJobId, aiType, status, inputText, resultText, score, errorMessage, createdAt, completedAt.
-- `Portfolio` -> `portfolios`: applicantProfileId, title, introduction, visibility, coverImageUrl, createdAt, updatedAt.
-- `PortfolioItem` -> `portfolio_items`: portfolioId, title, description, imageUrl, imagePublicId, eventName, eventRole, eventDate, location, visibility, createdFromMobile, createdAt, updatedAt.
+- `LegacyPortfolio` -> `portfolios` (compatibility): applicantProfileId, title, introduction, visibility, coverImageUrl, createdAt, updatedAt.
+- `PortfolioItem` -> `portfolio_items`: portfolioId, title, description, imageUrl, eventName, eventRole, eventDate, location, visibility, createdFromMobile, createdAt, updatedAt.
+- `Portfolio` -> `portfolios`: applicantId, headline, about, desiredRole, slug, isPublic, skills, socialLinks, featuredExperienceIds, createdAt, updatedAt.
+- `PortfolioExperience` -> `portfolio_experiences`: applicantId, type, title, organization, role, startDate, endDate, isCurrent, location, description, responsibilities, achievements, skills, coverAssetId, status, visibility, createdAt, updatedAt.
+- `PortfolioMoment` -> `portfolio_moments`: applicantId, experienceId, caption, capturedAt, location, mediaAssetIds, skills, status, visibility, createdAt, updatedAt.
+- `PortfolioAsset` -> `portfolio_assets`: applicantId, assetType, usage, cloudinaryPublicId, cloudinaryResourceType, secureUrl, originalFilename, mimeType, format, bytes, createdAt.
+- `PortfolioEvidence` -> `portfolio_evidence`: applicantId, experienceId, type, title, description, url, assetId, verificationStatus, createdAt, updatedAt.
 
 ## Important Relationships
 
@@ -23,9 +28,22 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 - `AIResult.accountId` references `Account`; `cvDocumentId` references `CVDocument` when present.
 - `Portfolio.applicantProfileId` references `ApplicantProfile` and is unique.
 - `PortfolioItem.portfolioId` references `Portfolio`.
+- New portfolio domain ownership uses `applicantId` referencing `Account._id`; it is always derived from JWT context.
+- `PortfolioMoment.experienceId` is nullable and owns the Moment → Experience relationship; Experiences do not store `momentIds`.
+- Portfolio assets reference Cloudinary resources and are cleaned up when their owning Moment/Evidence/Cover is removed and no other reference remains.
 
 ## Enum Sources
 
 Use `src/constants/enums.ts` for role, status, CV language, AI type/status, and visibility values.
 
 Do not change schema fields, collection names, indexes, enum values, or relationships unless explicitly requested.
+
+## New Portfolio indexes
+
+- `portfolios`: unique `applicantId`, unique `slug`.
+- `portfolio_experiences`: `{ applicantId, status }`, `{ applicantId, type }`, `{ applicantId, createdAt }`.
+- `portfolio_moments`: `{ applicantId, createdAt }`, `{ experienceId, capturedAt }`.
+- `portfolio_assets`: `{ applicantId, createdAt }`.
+- `portfolio_evidence`: `{ experienceId, createdAt }`.
+
+The existing MVP `Portfolio`/`PortfolioItem` contract is retained through a compatibility model for legacy routes. No automatic migration runs during application startup; existing legacy documents are not silently deleted or rewritten.

@@ -2,7 +2,7 @@ import ApiError from "../../utils/apiError";
 import { VISIBILITIES } from "../../constants/enums";
 import { deleteCloudinaryResource } from "../uploads/upload.service";
 import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
-import Portfolio from "./portfolio.model";
+import Portfolio from "./portfolioLegacy.model";
 import PortfolioItem from "./portfolioItem.model";
 
 type PortfolioPayload = {
