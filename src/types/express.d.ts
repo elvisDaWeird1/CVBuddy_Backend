@@ -11,6 +11,8 @@ declare global {
         status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
       }>;
       account?: Request["user"];
+      authToken?: string;
+      authTokenExpiresAt?: Date;
     }
   }
 }

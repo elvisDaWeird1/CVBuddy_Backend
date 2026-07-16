@@ -5,3 +5,13 @@ uploads
 *.log
 .git
 .gitignore
+coverage
+.env
+.env.*
+npm-debug.log
+npm-debug.log*
+.git
+Dockerfile
+.dockerignore
+uploads
+*.log

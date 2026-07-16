@@ -36,6 +36,10 @@ const swaggerSpec = swaggerJSDoc({
         description: "CV upload and management APIs"
       },
       {
+        name: "Upload",
+        description: "Cloudinary-backed file upload APIs"
+      },
+      {
         name: "AI",
         description: "AI CV feedback, scoring, translation, and result history APIs"
       },

@@ -1,5 +1,6 @@
 import ApiError from "../../utils/apiError";
 import { VISIBILITIES } from "../../constants/enums";
+import { deleteCloudinaryResource } from "../uploads/upload.service";
 import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import Portfolio from "./portfolioLegacy.model";
 import PortfolioItem from "./portfolioItem.model";
@@ -15,6 +16,7 @@ type PortfolioItemPayload = {
   title?: string;
   description?: string;
   imageUrl?: string;
+  imagePublicId?: string;
   eventName?: string;
   eventRole?: string;
   eventDate?: string;
@@ -79,6 +81,7 @@ const serializePortfolioItem = (portfolioItem) => {
     title: portfolioItem.title,
     description: portfolioItem.description || "",
     imageUrl: portfolioItem.imageUrl || "",
+    imagePublicId: portfolioItem.imagePublicId || "",
     eventName: portfolioItem.eventName || "",
     eventRole: portfolioItem.eventRole || "",
     eventDate: portfolioItem.eventDate || null,
@@ -244,6 +247,7 @@ const createPortfolioItem = async (
     title,
     description: trimOptional(payload.description),
     imageUrl: trimOptional(payload.imageUrl),
+    imagePublicId: trimOptional(payload.imagePublicId),
     eventName: trimOptional(payload.eventName),
     eventRole: trimOptional(payload.eventRole),
     eventDate: toEventDate(payload.eventDate),
@@ -300,6 +304,7 @@ const updatePortfolioItem = async (
   payload: PortfolioItemPayload
 ) => {
   const portfolioItem = await getOwnedPortfolioItem(accountId, portfolioItemId);
+  const previousImagePublicId = portfolioItem.imagePublicId;
 
   if (payload.title !== undefined) {
     portfolioItem.title = payload.title.trim();
@@ -311,6 +316,10 @@ const updatePortfolioItem = async (
 
   if (payload.imageUrl !== undefined) {
     portfolioItem.imageUrl = trimOptional(payload.imageUrl);
+  }
+
+  if (payload.imagePublicId !== undefined) {
+    portfolioItem.imagePublicId = trimOptional(payload.imagePublicId);
   }
 
   if (payload.eventName !== undefined) {
@@ -335,11 +344,25 @@ const updatePortfolioItem = async (
 
   await portfolioItem.save();
 
+  if (
+    payload.imagePublicId !== undefined &&
+    previousImagePublicId &&
+    previousImagePublicId !== portfolioItem.imagePublicId
+  ) {
+    await deleteCloudinaryResource(previousImagePublicId, "image").catch(
+      () => undefined
+    );
+  }
+
   return serializePortfolioItem(portfolioItem);
 };
 
 const deletePortfolioItem = async (accountId, portfolioItemId: string) => {
   const portfolioItem = await getOwnedPortfolioItem(accountId, portfolioItemId);
+
+  if (portfolioItem.imagePublicId) {
+    await deleteCloudinaryResource(portfolioItem.imagePublicId, "image");
+  }
 
   await PortfolioItem.deleteOne({ _id: portfolioItem._id });
 };

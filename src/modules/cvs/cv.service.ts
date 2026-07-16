@@ -1,9 +1,11 @@
 import path from "path";
 
 import ApiError from "../../utils/apiError";
-import { removeFileIfExists } from "../../utils/file";
 import { CV_LANGUAGES, CV_STATUSES } from "../../constants/enums";
-import { getStoredCvFileUrl } from "../../middlewares/upload.middleware";
+import {
+  deleteCloudinaryResource,
+  uploadCvFile
+} from "../uploads/upload.service";
 import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import CVDocument from "./cvDocument.model";
 import { extractTextFromCv } from "./cvTextExtractor.service";
@@ -22,8 +24,13 @@ const serializeCv = (cv, options: SerializeCvOptions = {}) => {
     applicantProfileId: string;
     title: string;
     fileUrl: string;
+    filePublicId?: string;
+    fileResourceType?: string;
     fileType: string;
     fileSize: number;
+    originalName?: string;
+    mimeType?: string;
+    size?: number;
     language: string;
     status: string;
     uploadedAt: Date;
@@ -43,6 +50,26 @@ const serializeCv = (cv, options: SerializeCvOptions = {}) => {
     createdAt: cv.createdAt,
     updatedAt: cv.updatedAt
   };
+
+  if (cv.filePublicId) {
+    payload.filePublicId = cv.filePublicId;
+  }
+
+  if (cv.fileResourceType) {
+    payload.fileResourceType = cv.fileResourceType;
+  }
+
+  if (cv.originalName) {
+    payload.originalName = cv.originalName;
+  }
+
+  if (cv.mimeType) {
+    payload.mimeType = cv.mimeType;
+  }
+
+  if (cv.size !== undefined) {
+    payload.size = cv.size;
+  }
 
   if (options.includeExtractedText) {
     payload.extractedText = cv.extractedText || "";
@@ -75,6 +102,8 @@ const createCv = async ({ accountId, file, payload }) => {
     ]);
   }
 
+  let uploadedFile: Awaited<ReturnType<typeof uploadCvFile>> | undefined;
+
   try {
     const applicantProfile = await getApplicantProfileForAccount(accountId);
 
@@ -86,12 +115,19 @@ const createCv = async ({ accountId, file, payload }) => {
       extractedText = "";
     }
 
+    uploadedFile = await uploadCvFile({ accountId, file });
+
     const cv = await CVDocument.create({
       applicantProfileId: applicantProfile._id,
       title: payload.title.trim(),
-      fileUrl: getStoredCvFileUrl(file.filename),
+      fileUrl: uploadedFile.url,
+      filePublicId: uploadedFile.publicId,
+      fileResourceType: uploadedFile.resourceType,
       fileType: getFileType(file),
-      fileSize: file.size,
+      fileSize: uploadedFile.bytes || file.size,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
       language: payload.language || CV_LANGUAGES.VI,
       extractedText,
       status: CV_STATUSES.ACTIVE
@@ -99,7 +135,13 @@ const createCv = async ({ accountId, file, payload }) => {
 
     return serializeCv(cv, { includeExtractedText: true });
   } catch (error) {
-    await removeFileIfExists(file.path).catch(() => undefined);
+    if (uploadedFile) {
+      await deleteCloudinaryResource(
+        uploadedFile.publicId,
+        uploadedFile.resourceType
+      ).catch(() => undefined);
+    }
+
     throw error;
   }
 };
@@ -142,6 +184,13 @@ const deleteMyCvById = async (accountId, cvId) => {
 
   if (!cv) {
     throw new ApiError(404, "CV not found");
+  }
+
+  if (cv.filePublicId) {
+    await deleteCloudinaryResource(
+      cv.filePublicId,
+      cv.fileResourceType || "raw"
+    );
   }
 
   cv.status = CV_STATUSES.DELETED;

@@ -19,6 +19,7 @@ const serializeApplicantProfile = (profile) => {
     summary: profile.summary,
     careerGoal: profile.careerGoal,
     avatarUrl: profile.avatarUrl,
+    avatarPublicId: profile.avatarPublicId,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt
   };

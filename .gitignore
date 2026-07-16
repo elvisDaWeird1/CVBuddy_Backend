@@ -8,7 +8,7 @@ yarn-error.log*
 .codex-dev-server*.log
 .codex-ts-dev*.log
 .DS_Store
-uploads/
+/uploads/
 
 # AI agent / local workflow files
 .agents/
