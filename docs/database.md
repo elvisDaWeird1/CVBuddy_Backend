@@ -41,7 +41,7 @@ Do not change schema fields, collection names, indexes, enum values, or relation
 
 ## New Portfolio indexes
 
-- `portfolios`: `{ applicantId, updatedAt }`, unique `slug`. The historical unique `applicantId` index must be dropped by the multiple-portfolio migration.
+- `portfolios`: unique `applicantId`, unique `slug`. Run `npm run migrate:single-portfolio` to verify that no duplicate owners exist and create the applicant index when needed.
 - `portfolio_experiences`: `{ applicantId, status }`, `{ applicantId, type }`, `{ applicantId, createdAt }`.
 - `portfolio_moments`: `{ applicantId, createdAt }`, `{ experienceId, capturedAt }`.
 - `portfolio_experiences`: `{ portfolioId, createdAt }`.
@@ -50,4 +50,4 @@ Do not change schema fields, collection names, indexes, enum values, or relation
 - `portfolio_assets`: `{ applicantId, createdAt }`.
 - `portfolio_evidence`: `{ experienceId, createdAt }`.
 
-The existing MVP `Portfolio`/`PortfolioItem` contract is retained through a compatibility model for legacy routes. No migration runs at application startup. Run `npm run migrate:multiple-portfolios` before enabling multiple-Portfolio writes on an existing database; request-time compatibility only converts/backfills the authenticated applicant default Portfolio.
+The existing MVP `Portfolio`/`PortfolioItem` contract is retained through compatibility routes, but every Applicant owns at most one Portfolio. No migration runs at application startup. The single-Portfolio migration refuses to modify duplicate owners so existing media can be resolved without silent data loss.

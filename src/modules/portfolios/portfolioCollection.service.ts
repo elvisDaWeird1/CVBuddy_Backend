@@ -43,7 +43,7 @@ const buildSlug = (title: string, id = new mongoose.Types.ObjectId()) =>
 
 const buildPublicUrl = (slug: string) => {
   const configured = process.env.PUBLIC_PORTFOLIO_BASE_URL?.trim().replace(/\/+$/, "");
-  return configured ? configured + "/" + slug : "/portfolio/" + slug;
+  return configured ? configured + "/" + slug : "/p/" + slug;
 };
 
 const serializePortfolio = (
@@ -64,6 +64,11 @@ const serializePortfolio = (
     slug: portfolio.slug,
     publicUrl: buildPublicUrl(portfolio.slug),
     publishedAt: portfolio.publishedAt || null,
+    headline: portfolio.headline || "",
+    about: portfolio.about || "",
+    desiredRole: portfolio.desiredRole || "",
+    skills: portfolio.skills || [],
+    socialLinks: portfolio.socialLinks || {},
     momentCount: counts.momentCount || 0,
     experienceCount: counts.experienceCount || 0,
     updatedAt: portfolio.updatedAt,
@@ -105,7 +110,7 @@ const backfillDefaultChildren = async (applicantId, portfolioId) => {
   ]);
 };
 
-const ensureDefaultPortfolio = async (applicantId) => {
+const findDefaultPortfolio = async (applicantId) => {
   let portfolio = await Portfolio.findOne({ applicantId }).sort({ createdAt: 1 });
 
   if (!portfolio) {
@@ -124,45 +129,83 @@ const ensureDefaultPortfolio = async (applicantId) => {
       portfolio.slug = portfolio.slug || buildSlug(portfolio.title, portfolio._id);
       portfolio.isPublic = portfolio.visibility === VISIBILITIES.PUBLIC;
       await portfolio.save();
-    } else {
-      const id = new mongoose.Types.ObjectId();
-      portfolio = await Portfolio.create({
-        _id: id,
-        applicantId,
-        applicantProfileId: profile._id,
-        title: "My Portfolio",
-        slug: buildSlug("My Portfolio", id),
-        visibility: VISIBILITIES.PRIVATE,
-        isPublic: false
-      });
     }
   }
 
-  await backfillDefaultChildren(applicantId, portfolio._id);
+  if (portfolio) {
+    await backfillDefaultChildren(applicantId, portfolio._id);
+  }
   return portfolio;
 };
 
-const createPortfolio = async (applicantId, payload) => {
-  await ensureDefaultPortfolio(applicantId);
+const ensureDefaultPortfolio = async (applicantId) => {
+  const existing = await findDefaultPortfolio(applicantId);
+  if (existing) return existing;
+
+  const profile = await ApplicantProfile.findOne({ accountId: applicantId });
+  if (!profile) {
+    throw new ApiError(404, "Applicant profile not found", [], "APPLICANT_PROFILE_NOT_FOUND");
+  }
+
   const id = new mongoose.Types.ObjectId();
   try {
     const portfolio = await Portfolio.create({
       _id: id,
       applicantId,
+      applicantProfileId: profile._id,
+      title: "My Portfolio",
+      slug: buildSlug("My Portfolio", id),
+      visibility: VISIBILITIES.PRIVATE,
+      isPublic: false
+    });
+    await backfillDefaultChildren(applicantId, portfolio._id);
+    return portfolio;
+  } catch (error) {
+    if (error.code === 11000 && error.keyPattern?.applicantId) {
+      const concurrentPortfolio = await findDefaultPortfolio(applicantId);
+      if (concurrentPortfolio) return concurrentPortfolio;
+    }
+    throw error;
+  }
+};
+
+const createPortfolio = async (applicantId, payload) => {
+  const existing = await findDefaultPortfolio(applicantId);
+  if (existing) {
+    throw new ApiError(
+      409,
+      "This applicant already has a Portfolio",
+      [],
+      "PORTFOLIO_ALREADY_EXISTS"
+    );
+  }
+
+  const profile = await ApplicantProfile.findOne({ accountId: applicantId });
+  if (!profile) {
+    throw new ApiError(404, "Applicant profile not found", [], "APPLICANT_PROFILE_NOT_FOUND");
+  }
+
+  const id = new mongoose.Types.ObjectId();
+  try {
+    const portfolio = await Portfolio.create({
+      _id: id,
+      applicantId,
+      applicantProfileId: profile._id,
       title: payload.title.trim(),
       description: payload.description?.trim(),
       slug: buildSlug(payload.title, id),
       visibility: VISIBILITIES.PRIVATE,
       isPublic: false
     });
+    await backfillDefaultChildren(applicantId, portfolio._id);
     return serializePortfolio(portfolio);
   } catch (error) {
     if (error.code === 11000 && error.keyPattern?.applicantId) {
       throw new ApiError(
         409,
-        "Multiple Portfolio database migration is required",
+        "This applicant already has a Portfolio",
         [],
-        "MULTI_PORTFOLIO_MIGRATION_REQUIRED"
+        "PORTFOLIO_ALREADY_EXISTS"
       );
     }
     throw error;
@@ -178,7 +221,7 @@ const countPortfolioChildren = async (portfolioId) => {
 };
 
 const listPortfolios = async (applicantId) => {
-  await ensureDefaultPortfolio(applicantId);
+  await findDefaultPortfolio(applicantId);
   const portfolios = await Portfolio.find({ applicantId }).sort({ updatedAt: -1 });
   const counts = await Promise.all(
     portfolios.map((portfolio) => countPortfolioChildren(portfolio._id))
@@ -381,6 +424,7 @@ export {
   createPortfolioMoment,
   deletePortfolio,
   ensureDefaultPortfolio,
+  findDefaultPortfolio,
   getOwnedPortfolio,
   getPortfolio,
   listPortfolioExperiences,

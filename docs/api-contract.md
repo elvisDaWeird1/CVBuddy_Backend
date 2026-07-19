@@ -113,8 +113,8 @@ Do not change these contracts without an explicit API task.
 - CV: POST /api/cvs accepts PDF/DOC/DOCX up to 5 MB; title is optional and defaults to the original filename stem. originalName is the persisted filename field. Download is GET /api/cvs/:id/download. Preview is PDF-only at GET /api/cvs/:id/preview.
 - CV delete: any AIResult reference blocks delete with HTTP 409 and code CV_IN_USE. No force delete endpoint exists.
 - AI: Review CV maps to one CV_FEEDBACK result. Translate-and-Score is synchronous orchestration returning two result ids and per-step COMPLETED/FAILED status. The result detail endpoint remains the read-only polling contract.
-- Multiple Portfolio: /api/portfolios is now the list/create collection API. Nested Moment and Experience writes require portfolioId in the path. visibility uses PRIVATE/PUBLIC. Public reads use /api/public/portfolios/:slug.
-- Legacy: /api/portfolios/me, /api/portfolio, /api/portfolio-items and mobile photo routes remain for existing/default-portfolio clients and are deprecated for new multi-portfolio integration.
+- Single Portfolio: each Applicant owns at most one Portfolio. `/api/portfolio` is the canonical domain API; `GET /api/portfolio/me` returns `data.portfolio: null` until the first `PUT /api/portfolio/me` creates it.
+- Compatibility: `/api/portfolios` remains mounted for existing clients, but `POST /api/portfolios` returns `409 PORTFOLIO_ALREADY_EXISTS` when the Applicant already owns a Portfolio. Nested compatibility routes remain owner-scoped.
 
 The complete request/response examples, error codes, migration requirement and frontend integration notes are in docs/applicant-features-frontend-handoff.local.md.
 

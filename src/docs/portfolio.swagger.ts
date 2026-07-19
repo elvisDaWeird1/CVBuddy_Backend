@@ -44,8 +44,9 @@ const portfolioSwaggerPaths = {
     get: {
       tags: ["Portfolio"],
       summary: "Get my portfolio profile",
+      description: "Returns data.portfolio as null until the Applicant creates the single Portfolio with PUT /api/portfolio/me.",
       security: portfolioBearerSecurity,
-      responses: response("Portfolio fetched successfully", "PortfolioDomainResponse")
+      responses: response("Portfolio fetched successfully", "PortfolioDomainReadResponse")
     },
     put: {
       tags: ["Portfolio"],
@@ -251,6 +252,25 @@ const portfolioSwaggerSchemas = {
   EvidenceUpdateRequest: { type: "object", properties: { type: { type: "string" }, title: { type: "string" }, description: { type: "string" }, url: { type: "string", format: "uri", nullable: true }, verificationStatus: { type: "string", enum: ["unverified", "document-provided"] } } },
   EvidenceUpdateMultipartRequest: { allOf: [{ $ref: "#/components/schemas/EvidenceUpdateRequest" }], properties: { file: { type: "string", format: "binary" } } },
   PortfolioDomainResponse: portfolioResponse("PortfolioProfile"),
+  PortfolioDomainReadResponse: {
+    allOf: [
+      { $ref: "#/components/schemas/SuccessResponse" },
+      {
+        type: "object",
+        properties: {
+          data: {
+            type: "object",
+            properties: {
+              portfolio: {
+                allOf: [{ $ref: "#/components/schemas/PortfolioProfile" }],
+                nullable: true
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
   ExperienceResponse: portfolioResponse("PortfolioExperience"),
   MomentResponse: portfolioResponse("PortfolioMoment"),
   EvidenceResponse: portfolioResponse("PortfolioEvidence"),

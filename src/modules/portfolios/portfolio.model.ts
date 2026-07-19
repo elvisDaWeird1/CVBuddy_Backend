@@ -114,7 +114,7 @@ const PortfolioSchema = new mongoose.Schema<IPortfolio>(
   }
 );
 
-PortfolioSchema.index({ applicantId: 1, updatedAt: -1 });
+PortfolioSchema.index({ applicantId: 1 }, { unique: true });
 PortfolioSchema.index({ slug: 1 }, { unique: true, sparse: true });
 
 const Portfolio = mongoose.model<IPortfolio>("Portfolio", PortfolioSchema);
