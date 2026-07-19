@@ -5,8 +5,17 @@ import { authMiddleware } from "../../middlewares/auth.middleware";
 import { roleMiddleware } from "../../middlewares/role.middleware";
 import { validate } from "../../middlewares/validate.middleware";
 import * as portfolioController from "./portfolio.controller";
+import * as collectionController from "./portfolioCollection.controller";
+import { uploadPortfolioImage } from "../../middlewares/upload.middleware";
 import {
-  createPortfolioValidation,
+  validatePortfolioCreate,
+  validatePortfolioExperienceCreate,
+  validatePortfolioId as validateCollectionPortfolioId,
+  validatePortfolioMomentCreate,
+  validatePortfolioUpdate as validateCollectionPortfolioUpdate,
+  validatePortfolioVisibility
+} from "./portfolioCollection.validation";
+import {
   updatePortfolioValidation,
   portfolioIdValidation,
   createPortfolioItemValidation,
@@ -26,10 +35,11 @@ portfolioRouter.get(
 portfolioRouter.use(authMiddleware);
 portfolioRouter.use(roleMiddleware(ACCOUNT_ROLES.APPLICANT));
 
+portfolioRouter.get("/", collectionController.list);
 portfolioRouter.post(
   "/",
-  validate(createPortfolioValidation),
-  portfolioController.createPortfolio
+  validate(validatePortfolioCreate),
+  collectionController.create
 );
 
 portfolioRouter.get("/me", portfolioController.getMyPortfolio);
@@ -38,6 +48,52 @@ portfolioRouter.patch(
   "/me",
   validate(updatePortfolioValidation),
   portfolioController.updateMyPortfolio
+);
+
+portfolioRouter.get(
+  "/:portfolioId/experiences",
+  validate(validateCollectionPortfolioId),
+  collectionController.listExperiences
+);
+portfolioRouter.post(
+  "/:portfolioId/experiences",
+  validate(validateCollectionPortfolioId),
+  validate(validatePortfolioExperienceCreate),
+  collectionController.createExperience
+);
+portfolioRouter.get(
+  "/:portfolioId/moments",
+  validate(validateCollectionPortfolioId),
+  collectionController.listMoments
+);
+portfolioRouter.post(
+  "/:portfolioId/moments",
+  uploadPortfolioImage,
+  validate(validateCollectionPortfolioId),
+  validate(validatePortfolioMomentCreate),
+  collectionController.createMoment
+);
+portfolioRouter.patch(
+  "/:portfolioId/visibility",
+  validate(validateCollectionPortfolioId),
+  validate(validatePortfolioVisibility),
+  collectionController.setVisibility
+);
+portfolioRouter.get(
+  "/:portfolioId",
+  validate(validateCollectionPortfolioId),
+  collectionController.get
+);
+portfolioRouter.patch(
+  "/:portfolioId",
+  validate(validateCollectionPortfolioId),
+  validate(validateCollectionPortfolioUpdate),
+  collectionController.update
+);
+portfolioRouter.delete(
+  "/:portfolioId",
+  validate(validateCollectionPortfolioId),
+  collectionController.remove
 );
 
 portfolioItemRouter.use(authMiddleware);

@@ -10,6 +10,7 @@ import {
 
 export interface IPortfolioExperience extends Document {
   applicantId: Types.ObjectId;
+  portfolioId?: Types.ObjectId;
   type: string;
   title: string;
   organization?: string;
@@ -35,6 +36,10 @@ const PortfolioExperienceSchema = new mongoose.Schema<IPortfolioExperience>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Account",
       required: true
+    },
+    portfolioId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Portfolio"
     },
     type: {
       type: String,
@@ -84,6 +89,7 @@ const PortfolioExperienceSchema = new mongoose.Schema<IPortfolioExperience>(
 PortfolioExperienceSchema.index({ applicantId: 1, status: 1 });
 PortfolioExperienceSchema.index({ applicantId: 1, type: 1 });
 PortfolioExperienceSchema.index({ applicantId: 1, createdAt: -1 });
+PortfolioExperienceSchema.index({ portfolioId: 1, createdAt: -1 });
 
 const PortfolioExperience = mongoose.model<IPortfolioExperience>(
   "PortfolioExperience",

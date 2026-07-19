@@ -63,6 +63,25 @@ const cvAiRequestValidation = (req) => {
   return errors;
 };
 
+const careerTargetAiRequestValidation = (req) => {
+  const errors = cvAiRequestValidation(req);
+  const body = req.body || {};
+
+  if (!isNonEmptyString(body.industrySlug)) {
+    errors.push({ field: "industrySlug", message: "industrySlug is required" });
+  } else if (!/^[a-z0-9]+(?:[_-][a-z0-9]+)*$/.test(body.industrySlug.trim())) {
+    errors.push({ field: "industrySlug", message: "industrySlug must be a normalized slug" });
+  }
+
+  if (!isNonEmptyString(body.targetRole)) {
+    errors.push({ field: "targetRole", message: "targetRole is required" });
+  } else if (body.targetRole.trim().length < 2) {
+    errors.push({ field: "targetRole", message: "targetRole must be at least 2 characters" });
+  }
+
+  return errors;
+};
+
 const aiResultIdValidation = (req) => {
   const errors = [];
 
@@ -90,6 +109,7 @@ const aiResultsQueryValidation = (req) => {
 
 export {
   cvAiRequestValidation,
+  careerTargetAiRequestValidation,
   aiResultIdValidation,
   aiResultsQueryValidation
 };

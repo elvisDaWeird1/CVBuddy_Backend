@@ -1,7 +1,18 @@
 import mongoose, { Document, Types } from "mongoose";
+import {
+  VISIBILITIES,
+  VISIBILITY_VALUES
+} from "../../constants/enums";
 
 export interface IPortfolio extends Document {
   applicantId: Types.ObjectId;
+  applicantProfileId?: Types.ObjectId;
+  title: string;
+  description?: string;
+  coverImageUrl?: string;
+  coverImagePublicId?: string;
+  visibility: "PRIVATE" | "PUBLIC";
+  publishedAt?: Date;
   headline?: string;
   about?: string;
   desiredRole?: string;
@@ -20,6 +31,40 @@ const PortfolioSchema = new mongoose.Schema<IPortfolio>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Account",
       required: true
+    },
+    applicantProfileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ApplicantProfile"
+    },
+    title: {
+      type: String,
+      trim: true,
+      minlength: 2,
+      maxlength: 100,
+      default: "My Portfolio",
+      required: true
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 2000
+    },
+    coverImageUrl: {
+      type: String,
+      trim: true
+    },
+    coverImagePublicId: {
+      type: String,
+      trim: true
+    },
+    visibility: {
+      type: String,
+      enum: VISIBILITY_VALUES,
+      default: VISIBILITIES.PRIVATE,
+      required: true
+    },
+    publishedAt: {
+      type: Date
     },
     headline: {
       type: String,
@@ -69,7 +114,7 @@ const PortfolioSchema = new mongoose.Schema<IPortfolio>(
   }
 );
 
-PortfolioSchema.index({ applicantId: 1 }, { unique: true, sparse: true });
+PortfolioSchema.index({ applicantId: 1, updatedAt: -1 });
 PortfolioSchema.index({ slug: 1 }, { unique: true, sparse: true });
 
 const Portfolio = mongoose.model<IPortfolio>("Portfolio", PortfolioSchema);

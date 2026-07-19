@@ -46,7 +46,9 @@ const mimeTypeForExtension = (extension: string) => {
 
 const getMaxBytes = () => {
   const configured = Number.parseInt(process.env.MAX_CV_FILE_SIZE_MB || "", 10);
-  const sizeMb = Number.isInteger(configured) && configured > 0 ? configured : 10;
+  const sizeMb = Number.isInteger(configured) && configured > 0
+    ? Math.min(configured, 5)
+    : 5;
   return sizeMb * 1024 * 1024;
 };
 

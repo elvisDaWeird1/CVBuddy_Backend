@@ -8,7 +8,8 @@ import * as aiController from "./ai.controller";
 import {
   aiResultIdValidation,
   aiResultsQueryValidation,
-  cvAiRequestValidation
+  cvAiRequestValidation,
+  careerTargetAiRequestValidation
 } from "./ai.validation";
 
 const router = express.Router();
@@ -23,6 +24,12 @@ router.post(
 );
 
 router.post(
+  "/cvs/:cvId/review",
+  validate(careerTargetAiRequestValidation),
+  aiController.reviewCv
+);
+
+router.post(
   "/cvs/:cvId/score",
   validate(cvAiRequestValidation),
   aiController.generateScore
@@ -32,6 +39,12 @@ router.post(
   "/cvs/:cvId/translate-to-english",
   validate(cvAiRequestValidation),
   aiController.translateToEnglish
+);
+
+router.post(
+  "/cvs/:cvId/translate-and-score",
+  validate(careerTargetAiRequestValidation),
+  aiController.translateAndScore
 );
 
 router.get(

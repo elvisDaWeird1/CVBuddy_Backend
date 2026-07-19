@@ -6,12 +6,12 @@ const ALLOWED_PROFILE_FIELDS = [
   "location",
   "headline",
   "summary",
-  "careerGoal",
-  "avatarUrl"
+  "careerGoal"
 ];
 
 const FORBIDDEN_PROFILE_FIELDS = [
   "accountId",
+  "avatarUrl",
   "avatarPublicId",
   "role",
   "status",
@@ -123,8 +123,6 @@ const updateApplicantProfileValidation = (req) => {
   validateOptionalString(errors, body, "headline", { maxLength: 160 });
   validateOptionalString(errors, body, "summary", { maxLength: 2000 });
   validateOptionalString(errors, body, "careerGoal", { maxLength: 2000 });
-  validateOptionalUrl(errors, body, "avatarUrl");
-
   return errors;
 };
 

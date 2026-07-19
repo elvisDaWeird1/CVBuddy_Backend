@@ -24,6 +24,7 @@ const serializeMoment = (moment, assets: unknown[] = [], includePrivateFields = 
 
   const payload = {
     id: toId(moment._id),
+    portfolioId: toId(moment.portfolioId) || null,
     experienceId: toId(moment.experienceId) || null,
     caption: moment.caption || "",
     capturedAt: moment.capturedAt,
@@ -33,6 +34,7 @@ const serializeMoment = (moment, assets: unknown[] = [], includePrivateFields = 
     mediaAssets: assets.map((asset) =>
       serializeAsset(asset, { public: !includePrivateFields })
     ),
+    imageUrl: assets[0]?.secureUrl || "",
     status: moment.status,
     visibility: moment.visibility,
     createdAt: moment.createdAt,
@@ -45,6 +47,7 @@ const serializeMoment = (moment, assets: unknown[] = [], includePrivateFields = 
     delete payload.status;
     delete payload.visibility;
     delete payload.mediaAssetIds;
+    delete payload.portfolioId;
   }
 
   return payload;

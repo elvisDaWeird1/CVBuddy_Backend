@@ -25,8 +25,10 @@ const ALLOWED_PORTFOLIO_MIME_TYPES = [
 ];
 
 const getMaxPortfolioFileSizeBytes = () => {
-  const sizeMb = Number.parseInt(process.env.MAX_PORTFOLIO_FILE_SIZE_MB || "10", 10);
-  const normalizedSizeMb = Number.isInteger(sizeMb) && sizeMb > 0 ? sizeMb : 10;
+  const sizeMb = Number.parseInt(process.env.MAX_PORTFOLIO_FILE_SIZE_MB || "5", 10);
+  const normalizedSizeMb = Number.isInteger(sizeMb) && sizeMb > 0
+    ? Math.min(sizeMb, 5)
+    : 5;
 
   return normalizedSizeMb * 1024 * 1024;
 };

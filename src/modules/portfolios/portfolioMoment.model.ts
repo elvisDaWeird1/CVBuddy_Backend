@@ -8,6 +8,7 @@ import {
 
 export interface IPortfolioMoment extends Document {
   applicantId: Types.ObjectId;
+  portfolioId?: Types.ObjectId;
   experienceId?: Types.ObjectId | null;
   caption?: string;
   capturedAt: Date;
@@ -26,6 +27,10 @@ const PortfolioMomentSchema = new mongoose.Schema<IPortfolioMoment>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Account",
       required: true
+    },
+    portfolioId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Portfolio"
     },
     experienceId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -66,6 +71,7 @@ const PortfolioMomentSchema = new mongoose.Schema<IPortfolioMoment>(
 
 PortfolioMomentSchema.index({ applicantId: 1, createdAt: -1 });
 PortfolioMomentSchema.index({ experienceId: 1, capturedAt: -1 });
+PortfolioMomentSchema.index({ portfolioId: 1, capturedAt: -1 });
 
 const PortfolioMoment = mongoose.model<IPortfolioMoment>(
   "PortfolioMoment",

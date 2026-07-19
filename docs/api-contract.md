@@ -24,6 +24,7 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `PATCH /api/auth/change-password`
 - `GET /api/applicant-profile/me`
 - `PATCH /api/applicant-profile/me`
+- `PATCH /api/applicant-profile/me/avatar`
 - `POST /api/uploads/avatar`
 - `POST /api/uploads/portfolio-photo`
 - `POST /api/uploads/cv`
@@ -32,12 +33,24 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `GET /api/cvs`
 - `GET /api/cvs/:id`
 - `DELETE /api/cvs/:id`
+- `GET /api/cvs/:id/download`
+- `GET /api/cvs/:id/preview`
 - `POST /api/ai/cvs/:cvId/feedback`
 - `POST /api/ai/cvs/:cvId/score`
 - `POST /api/ai/cvs/:cvId/translate-to-english`
+- `POST /api/ai/cvs/:cvId/review`
+- `POST /api/ai/cvs/:cvId/translate-and-score`
 - `GET /api/ai/results`
 - `GET /api/ai/results/:id`
 - `POST /api/portfolios`
+- `GET /api/portfolios`
+- `GET /api/portfolios/:portfolioId`
+- `PATCH /api/portfolios/:portfolioId`
+- `DELETE /api/portfolios/:portfolioId`
+- `PATCH /api/portfolios/:portfolioId/visibility`
+- `GET|POST /api/portfolios/:portfolioId/moments`
+- `GET|POST /api/portfolios/:portfolioId/experiences`
+- `GET /api/public/portfolios/:slug`
 - `GET /api/portfolios/me`
 - `PATCH /api/portfolios/me`
 - `GET /api/portfolios/public/:portfolioId`
@@ -93,6 +106,17 @@ The current portfolio domain uses `/api/portfolio`. All private endpoints requir
 The legacy `/api/portfolios`, `/api/portfolio-items`, and `/api/mobile/portfolio/photos` routes remain mounted for existing clients. New clients should use the domain routes above.
 
 Do not change these contracts without an explicit API task.
+
+## Applicant feature contract decisions (2026-07-17)
+
+- Avatar: PATCH /api/applicant-profile/me/avatar, multipart field avatar, JPEG/PNG/WebP, maximum 5 MB. PATCH profile no longer accepts avatarUrl. GET /api/auth/me includes profile.avatarUrl.
+- CV: POST /api/cvs accepts PDF/DOC/DOCX up to 5 MB; title is optional and defaults to the original filename stem. originalName is the persisted filename field. Download is GET /api/cvs/:id/download. Preview is PDF-only at GET /api/cvs/:id/preview.
+- CV delete: any AIResult reference blocks delete with HTTP 409 and code CV_IN_USE. No force delete endpoint exists.
+- AI: Review CV maps to one CV_FEEDBACK result. Translate-and-Score is synchronous orchestration returning two result ids and per-step COMPLETED/FAILED status. The result detail endpoint remains the read-only polling contract.
+- Multiple Portfolio: /api/portfolios is now the list/create collection API. Nested Moment and Experience writes require portfolioId in the path. visibility uses PRIVATE/PUBLIC. Public reads use /api/public/portfolios/:slug.
+- Legacy: /api/portfolios/me, /api/portfolio, /api/portfolio-items and mobile photo routes remain for existing/default-portfolio clients and are deprecated for new multi-portfolio integration.
+
+The complete request/response examples, error codes, migration requirement and frontend integration notes are in docs/applicant-features-frontend-handoff.local.md.
 
 ## AI service integration
 

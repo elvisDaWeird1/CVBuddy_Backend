@@ -39,7 +39,8 @@ const serializeApplicantProfile = (profile) => {
 
   return {
     id: profile._id.toString(),
-    fullName: profile.fullName
+    fullName: profile.fullName,
+    avatarUrl: profile.avatarUrl || ""
   };
 };
 

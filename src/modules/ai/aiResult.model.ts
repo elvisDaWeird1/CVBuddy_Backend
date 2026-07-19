@@ -17,6 +17,10 @@ export interface IAIResult extends Document {
   resultText?: string;
   score?: number;
   errorMessage?: string;
+  errorCode?: string;
+  industrySlug?: string;
+  targetRole?: string;
+  workflowId?: Types.ObjectId;
   createdAt: Date;
   completedAt?: Date;
 }
@@ -68,6 +72,23 @@ const AIResultSchema = new mongoose.Schema<IAIResult>(
     errorMessage: {
       type: String
     },
+    errorCode: {
+      type: String,
+      trim: true
+    },
+    industrySlug: {
+      type: String,
+      trim: true,
+      lowercase: true
+    },
+    targetRole: {
+      type: String,
+      trim: true,
+      maxlength: 150
+    },
+    workflowId: {
+      type: mongoose.Schema.Types.ObjectId
+    },
     completedAt: {
       type: Date
     }
@@ -93,6 +114,7 @@ AIResultSchema.index({ relatedJobId: 1 });
 AIResultSchema.index({ aiType: 1 });
 AIResultSchema.index({ status: 1 });
 AIResultSchema.index({ createdAt: -1 });
+AIResultSchema.index({ accountId: 1, workflowId: 1 });
 
 const AIResult = mongoose.model<IAIResult>("AIResult", AIResultSchema);
 

@@ -8,6 +8,7 @@ import {
 
 export interface IPortfolioAsset extends Document {
   applicantId: Types.ObjectId;
+  portfolioId?: Types.ObjectId;
   assetType: string;
   usage: string;
   cloudinaryPublicId: string;
@@ -26,6 +27,10 @@ const PortfolioAssetSchema = new mongoose.Schema<IPortfolioAsset>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Account",
       required: true
+    },
+    portfolioId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Portfolio"
     },
     assetType: { type: String, enum: PORTFOLIO_ASSET_TYPE_VALUES, required: true },
     usage: { type: String, enum: PORTFOLIO_ASSET_USAGE_VALUES, required: true },
@@ -48,6 +53,7 @@ const PortfolioAssetSchema = new mongoose.Schema<IPortfolioAsset>(
 );
 
 PortfolioAssetSchema.index({ applicantId: 1, createdAt: -1 });
+PortfolioAssetSchema.index({ portfolioId: 1, createdAt: -1 });
 
 const PortfolioAsset = mongoose.model<IPortfolioAsset>(
   "PortfolioAsset",

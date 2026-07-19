@@ -1,4 +1,8 @@
 import { portfolioSwaggerPaths, portfolioSwaggerSchemas } from "./portfolio.swagger";
+import {
+  applicantFeatureSwaggerPaths,
+  applicantFeatureSwaggerSchemas
+} from "./applicantFeatures.swagger";
 
 const errorResponse = {
   description: "Error response",
@@ -458,7 +462,7 @@ const swaggerPaths = {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "PDF, DOC, or DOCX CV file"
+                  description: "PDF, DOC, or DOCX CV file; maximum 5 MB"
                 }
               }
             }
@@ -478,7 +482,8 @@ const swaggerPaths = {
         },
         400: errorResponse,
         401: errorResponse,
-        403: errorResponse
+        403: errorResponse,
+        413: errorResponse
       }
     }
   },
@@ -533,15 +538,17 @@ const swaggerPaths = {
           "multipart/form-data": {
             schema: {
               type: "object",
-              required: ["file", "title"],
+              required: ["file"],
               properties: {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "PDF, DOC, or DOCX CV file"
+                  description: "PDF, DOC, or DOCX CV file; maximum 5 MB"
                 },
                 title: {
                   type: "string",
+                  maxLength: 150,
+                  description: "Optional; defaults to the original filename without extension",
                   example: "My Backend Developer CV"
                 },
                 language: {
@@ -568,7 +575,9 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        413: errorResponse,
+        502: errorResponse
       }
     },
     get: {
@@ -1148,7 +1157,8 @@ const swaggerPaths = {
       }
     }
   },
-  ...portfolioSwaggerPaths
+  ...portfolioSwaggerPaths,
+  ...applicantFeatureSwaggerPaths
 };
 
 const swaggerComponents = {
@@ -1187,6 +1197,10 @@ const swaggerComponents = {
           type: "string",
           example: "Validation failed"
         },
+        code: {
+          type: "string",
+          example: "FILE_TOO_LARGE"
+        },
         errors: {
           type: "array",
           items: {
@@ -1199,6 +1213,10 @@ const swaggerComponents = {
               message: {
                 type: "string",
                 example: "Email is required"
+              },
+              code: {
+                type: "string",
+                example: "VALIDATION_FAILED"
               }
             }
           }
@@ -1408,6 +1426,14 @@ const swaggerComponents = {
           type: "string",
           example: "Nguyen Van A CV.docx"
         },
+        previewAvailable: {
+          type: "boolean",
+          example: false
+        },
+        downloadAvailable: {
+          type: "boolean",
+          example: true
+        },
         mimeType: {
           type: "string",
           example: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -1512,6 +1538,23 @@ const swaggerComponents = {
           type: "string",
           nullable: true,
           example: null
+        },
+        errorCode: {
+          type: "string",
+          nullable: true,
+          example: "AI_PROVIDER_TIMEOUT"
+        },
+        industrySlug: {
+          type: "string",
+          example: "marketing"
+        },
+        targetRole: {
+          type: "string",
+          example: "Marketing Intern"
+        },
+        workflowId: {
+          type: "string",
+          nullable: true
         },
         createdAt: {
           type: "string",
@@ -2147,7 +2190,8 @@ const swaggerComponents = {
         }
       ]
     },
-    ...portfolioSwaggerSchemas
+    ...portfolioSwaggerSchemas,
+    ...applicantFeatureSwaggerSchemas
   }
 };
 

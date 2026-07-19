@@ -5,6 +5,11 @@ import type { UploadApiOptions, UploadApiResponse } from "cloudinary";
 import cloudinary from "../../config/cloudinary.config";
 import { CV_STATUSES } from "../../constants/enums";
 import ApiError from "../../utils/apiError";
+import {
+  assertCvFileContent,
+  assertImageFileContent,
+  sanitizeOriginalFilename
+} from "../../utils/uploadFile";
 import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import { serializeApplicantProfile } from "../applicantProfiles/applicantProfile.service";
 import CVDocument from "../cvs/cvDocument.model";
@@ -74,6 +79,8 @@ const assertFile = (file: Express.Multer.File | undefined, field = "file") => {
 };
 
 const toUploadedFile = (result: UploadApiResponse, file: Express.Multer.File): UploadedFile => {
+  const originalName = sanitizeOriginalFilename(file.originalname);
+
   return {
     url: result.secure_url,
     secureUrl: result.secure_url,
@@ -81,15 +88,15 @@ const toUploadedFile = (result: UploadApiResponse, file: Express.Multer.File): U
     resourceType: result.resource_type,
     format: result.format,
     bytes: result.bytes,
-    originalFilename: result.original_filename || file.originalname,
-    originalName: file.originalname,
+    originalFilename: originalName,
+    originalName,
     mimeType: file.mimetype,
     size: file.size
   };
 };
 
 const getDisplayName = (originalname: string) => {
-  return originalname.replace(/[\\/]+/g, "-").trim() || "uploaded-file";
+  return sanitizeOriginalFilename(originalname);
 };
 
 const getFileExtension = (originalname: string) => {
@@ -137,7 +144,17 @@ const uploadBufferToCloudinary = async (
       uploadOptions,
       (error, result) => {
         if (error || !result) {
-          reject(error || new Error("Cloudinary upload failed"));
+          console.error("Cloudinary upload failed", {
+            message: error instanceof Error ? error.message : "Provider rejected upload"
+          });
+          reject(
+            new ApiError(
+              502,
+              "File storage upload failed",
+              [{ code: "STORAGE_UPLOAD_FAILED", message: "Unable to store uploaded file" }],
+              "STORAGE_UPLOAD_FAILED"
+            )
+          );
           return;
         }
 
@@ -191,16 +208,15 @@ const deleteCloudinaryResource = async (
 };
 
 const uploadAvatar = async ({ accountId, file }) => {
-  assertFile(file, "avatar");
+  assertImageFileContent(file, "avatar");
 
   const profile = await getApplicantProfileForAccount(accountId);
 
   const previousPublicId = profile.avatarPublicId;
   const uploadedFile = await uploadBufferToCloudinary(file, {
-    folder: CLOUDINARY_FOLDERS.APPLICANT_AVATAR,
+    folder: CLOUDINARY_FOLDERS.APPLICANT_AVATAR + "/" + toAccountIdString(accountId),
     resourceType: "image",
-    publicId: `${toAccountIdString(accountId)}-avatar`,
-    overwrite: true
+    publicId: "avatar-" + Date.now()
   });
 
   try {
@@ -214,8 +230,17 @@ const uploadAvatar = async ({ accountId, file }) => {
     throw error;
   }
 
-  if (previousPublicId && previousPublicId !== uploadedFile.publicId) {
-    await deleteCloudinaryResource(previousPublicId, "image").catch(() => undefined);
+  if (
+    previousPublicId &&
+    previousPublicId !== uploadedFile.publicId &&
+    previousPublicId.startsWith(CLOUDINARY_FOLDERS.APPLICANT_AVATAR + "/")
+  ) {
+    await deleteCloudinaryResource(previousPublicId, "image").catch((error) => {
+      console.error("Previous avatar cleanup failed", {
+        accountId: toAccountIdString(accountId),
+        message: error instanceof Error ? error.message : String(error)
+      });
+    });
   }
 
   return {
@@ -225,7 +250,7 @@ const uploadAvatar = async ({ accountId, file }) => {
 };
 
 const uploadPortfolioPhoto = async ({ accountId, file }) => {
-  assertFile(file, "image");
+  assertImageFileContent(file, "image");
 
   return uploadBufferToCloudinary(file, {
     folder: CLOUDINARY_FOLDERS.PORTFOLIO,
@@ -235,7 +260,7 @@ const uploadPortfolioPhoto = async ({ accountId, file }) => {
 };
 
 const uploadCvFile = async ({ accountId, file }) => {
-  assertFile(file, "file");
+  assertCvFileContent(file);
 
   return uploadBufferToCloudinary(file, {
     folder: CLOUDINARY_FOLDERS.CV,
@@ -256,19 +281,26 @@ const getMyCvDownload = async ({ accountId, cvId }) => {
 
   const cv = await CVDocument.findOne({
     _id: cvId,
-    applicantProfileId: applicantProfile._id,
     status: CV_STATUSES.ACTIVE
   });
 
   if (!cv) {
-    throw new ApiError(404, "CV not found");
+    throw new ApiError(404, "CV not found", [], "CV_NOT_FOUND");
+  }
+
+  if (cv.applicantProfileId.toString() !== applicantProfile._id.toString()) {
+    throw new ApiError(403, "You do not have permission to access this CV", [], "CV_FORBIDDEN");
   }
 
   return {
     url: cv.fileUrl,
-    originalName: cv.originalName || buildFallbackDownloadName(cv),
+    originalName: sanitizeOriginalFilename(
+      cv.originalName || buildFallbackDownloadName(cv),
+      "cv.bin"
+    ),
     mimeType: cv.mimeType || "application/octet-stream",
     size: cv.size ?? cv.fileSize,
+    fileType: cv.fileType,
     publicId: cv.filePublicId,
     resourceType: cv.fileResourceType || "raw"
   };

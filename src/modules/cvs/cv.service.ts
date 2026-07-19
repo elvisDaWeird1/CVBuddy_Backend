@@ -2,12 +2,14 @@ import path from "path";
 
 import ApiError from "../../utils/apiError";
 import { CV_LANGUAGES, CV_STATUSES } from "../../constants/enums";
+import { sanitizeOriginalFilename } from "../../utils/uploadFile";
 import {
   deleteCloudinaryResource,
   uploadCvFile
 } from "../uploads/upload.service";
 import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import CVDocument from "./cvDocument.model";
+import AIResult from "../ai/aiResult.model";
 import { extractTextFromCv } from "./cvTextExtractor.service";
 
 type SerializeCvOptions = {
@@ -31,6 +33,8 @@ const serializeCv = (cv, options: SerializeCvOptions = {}) => {
     originalName?: string;
     mimeType?: string;
     size?: number;
+    previewAvailable: boolean;
+    downloadAvailable: boolean;
     language: string;
     status: string;
     uploadedAt: Date;
@@ -44,6 +48,8 @@ const serializeCv = (cv, options: SerializeCvOptions = {}) => {
     fileUrl: cv.fileUrl,
     fileType: cv.fileType,
     fileSize: cv.fileSize,
+    previewAvailable: cv.fileType === "pdf",
+    downloadAvailable: Boolean(cv.fileUrl),
     language: cv.language,
     status: cv.status,
     uploadedAt: cv.uploadedAt,
@@ -95,6 +101,18 @@ const getFileType = (file) => {
   return path.extname(file.originalname).replace(".", "").toLowerCase();
 };
 
+const getCvMimeType = (fileType: string) => {
+  if (fileType === "pdf") return "application/pdf";
+  if (fileType === "doc") return "application/msword";
+  return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+};
+
+const buildCvTitle = (originalName: string) => {
+  const safeName = sanitizeOriginalFilename(originalName, "cv");
+  const extension = path.extname(safeName);
+  return (path.basename(safeName, extension).trim() || "cv").slice(0, 150);
+};
+
 const createCv = async ({ accountId, file, payload }) => {
   if (!file) {
     throw new ApiError(400, "CV file is required", [
@@ -119,14 +137,16 @@ const createCv = async ({ accountId, file, payload }) => {
 
     const cv = await CVDocument.create({
       applicantProfileId: applicantProfile._id,
-      title: payload.title.trim(),
+      title: typeof payload.title === "string" && payload.title.trim()
+        ? payload.title.trim()
+        : buildCvTitle(file.originalname),
       fileUrl: uploadedFile.url,
       filePublicId: uploadedFile.publicId,
       fileResourceType: uploadedFile.resourceType,
       fileType: getFileType(file),
       fileSize: uploadedFile.bytes || file.size,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
+      originalName: sanitizeOriginalFilename(file.originalname, "cv"),
+      mimeType: getCvMimeType(getFileType(file)),
       size: file.size,
       language: payload.language || CV_LANGUAGES.VI,
       extractedText,
@@ -186,15 +206,29 @@ const deleteMyCvById = async (accountId, cvId) => {
     throw new ApiError(404, "CV not found");
   }
 
-  if (cv.filePublicId) {
-    await deleteCloudinaryResource(
-      cv.filePublicId,
-      cv.fileResourceType || "raw"
+  if (await AIResult.exists({ cvDocumentId: cv._id })) {
+    throw new ApiError(
+      409,
+      "CV is referenced by AI results and cannot be deleted",
+      [{ field: "cvId", code: "CV_IN_USE", message: "Delete the related AI results first" }],
+      "CV_IN_USE"
     );
   }
 
   cv.status = CV_STATUSES.DELETED;
   await cv.save();
+
+  if (cv.filePublicId) {
+    await deleteCloudinaryResource(
+      cv.filePublicId,
+      cv.fileResourceType || "raw"
+    ).catch((error) => {
+      console.error("Deleted CV asset cleanup failed", {
+        cvId: cv._id.toString(),
+        message: error instanceof Error ? error.message : String(error)
+      });
+    });
+  }
 };
 
 export {
@@ -202,5 +236,6 @@ export {
   getMyCvs,
   getMyCvById,
   deleteMyCvById,
-  serializeCv
+  serializeCv,
+  buildCvTitle
 };
