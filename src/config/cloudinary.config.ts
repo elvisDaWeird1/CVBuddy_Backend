@@ -111,3 +111,5 @@ export {
   getCloudinaryConfig,
   uploadBufferToCloudinary
 };
+
+export default cloudinary;

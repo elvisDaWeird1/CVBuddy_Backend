@@ -30,13 +30,25 @@ const errorResponse = (
   res,
   message = "Internal server error",
   statusCode = 500,
-  errors = []
+  errors = [],
+  code?: string
 ) => {
-  return res.status(statusCode).json({
+  const payload: {
+    success: boolean;
+    message: string;
+    errors: unknown[];
+    code?: string;
+  } = {
     success: false,
     message,
     errors
-  });
+  };
+
+  if (code) {
+    payload.code = code;
+  }
+
+  return res.status(statusCode).json(payload);
 };
 
 export {

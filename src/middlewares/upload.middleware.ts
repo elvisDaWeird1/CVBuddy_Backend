@@ -2,28 +2,35 @@ import path from "path";
 import multer from "multer";
 
 import ApiError from "../utils/apiError";
+import {
+  MAX_CV_FILE_SIZE_BYTES,
+  MAX_IMAGE_FILE_SIZE_BYTES
+} from "../utils/uploadFile";
 
 const ALLOWED_CV_EXTENSIONS = [".pdf", ".doc", ".docx"];
 const ALLOWED_CV_MIME_TYPES = [
   "application/pdf",
   "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/octet-stream"
 ];
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const getMaxCvFileSizeBytes = () => {
-  const sizeMb = Number.parseInt(process.env.MAX_CV_FILE_SIZE_MB || "10", 10);
-  const normalizedSizeMb = Number.isInteger(sizeMb) && sizeMb > 0 ? sizeMb : 10;
+  const sizeMb = Number.parseInt(process.env.MAX_CV_FILE_SIZE_MB || "5", 10);
+  const configuredBytes = Number.isInteger(sizeMb) && sizeMb > 0
+    ? sizeMb * 1024 * 1024
+    : MAX_CV_FILE_SIZE_BYTES;
 
-  return normalizedSizeMb * 1024 * 1024;
+  return Math.min(configuredBytes, MAX_CV_FILE_SIZE_BYTES);
 };
 
 const getMaxImageFileSizeBytes = () => {
   const sizeMb = Number.parseInt(process.env.MAX_IMAGE_FILE_SIZE_MB || "5", 10);
   const normalizedSizeMb = Number.isInteger(sizeMb) && sizeMb > 0 ? sizeMb : 5;
 
-  return normalizedSizeMb * 1024 * 1024;
+  return Math.min(normalizedSizeMb * 1024 * 1024, MAX_IMAGE_FILE_SIZE_BYTES);
 };
 
 const memoryStorage = multer.memoryStorage();

@@ -2,6 +2,7 @@ import ApiError from "../../utils/apiError";
 import { Types } from "mongoose";
 import Portfolio from "./portfolio.model";
 import PortfolioExperience from "./portfolioExperience.model";
+import { ensureDefaultPortfolio } from "./portfolioCollection.service";
 
 const toId = (value) => value?.toString();
 
@@ -35,13 +36,7 @@ const serializePortfolio = (portfolio, includePrivateFields = true) => {
 };
 
 const getMyPortfolioDocument = async (applicantId) => {
-  const portfolio = await Portfolio.findOne({ applicantId });
-
-  if (!portfolio) {
-    throw new ApiError(404, "Portfolio not found");
-  }
-
-  return portfolio;
+  return ensureDefaultPortfolio(applicantId);
 };
 
 const getMyPortfolio = async (applicantId) => {
@@ -49,7 +44,7 @@ const getMyPortfolio = async (applicantId) => {
 };
 
 const updateMyPortfolio = async (applicantId, payload) => {
-  const existing = await Portfolio.findOne({ applicantId });
+  const existing = await ensureDefaultPortfolio(applicantId);
   const slug = payload.slug?.trim().toLowerCase() || existing?.slug;
 
   if (!slug) {
@@ -68,9 +63,9 @@ const updateMyPortfolio = async (applicantId, payload) => {
 
   try {
     const portfolio = await Portfolio.findOneAndUpdate(
-      { applicantId },
+      { _id: existing._id, applicantId },
       { $set: updates },
-      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      { new: true, runValidators: true }
     );
 
     return serializePortfolio(portfolio);
@@ -86,9 +81,14 @@ const updateMyPortfolio = async (applicantId, payload) => {
 };
 
 const setPortfolioPublic = async (applicantId, isPublic: boolean) => {
+  const existing = await ensureDefaultPortfolio(applicantId);
   const portfolio = await Portfolio.findOneAndUpdate(
-    { applicantId },
-    { $set: { isPublic } },
+    { _id: existing._id, applicantId },
+    { $set: {
+      isPublic,
+      visibility: isPublic ? "PUBLIC" : "PRIVATE",
+      publishedAt: isPublic ? existing.publishedAt || new Date() : existing.publishedAt
+    } },
     { new: true, runValidators: true }
   );
 
@@ -103,6 +103,7 @@ const setFeaturedExperiences = async (applicantId, featuredExperienceIds: string
   const portfolio = await getMyPortfolioDocument(applicantId);
   const experiences = await PortfolioExperience.find({
     applicantId,
+    portfolioId: portfolio._id,
     _id: { $in: featuredExperienceIds }
   }).select({ _id: 1 });
 

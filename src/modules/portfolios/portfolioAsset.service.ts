@@ -47,7 +47,16 @@ const safeDeleteAssetRecord = async (assetId, context: string) => {
   }
 };
 
-const getPortfolioFolder = (usage: AssetUsage, applicantId: string, resourceId: string) => {
+const getPortfolioFolder = (
+  usage: AssetUsage,
+  applicantId: string,
+  resourceId: string,
+  portfolioId?: string
+) => {
+  if (portfolioId && usage === PORTFOLIO_ASSET_USAGES.MOMENT_MEDIA) {
+    return "cvbuddy/portfolios/" + portfolioId + "/moments/" + resourceId;
+  }
+
   if (usage === PORTFOLIO_ASSET_USAGES.MOMENT_MEDIA) {
     return `cvbuddy/applicants/${applicantId}/portfolio/moments/${resourceId}`;
   }
@@ -143,13 +152,15 @@ const createPortfolioAsset = async ({
   file,
   usage,
   resourceId,
-  assetType
+  assetType,
+  portfolioId
 }: {
   applicantId: string;
   file: PortfolioFile;
   usage: AssetUsage;
   resourceId: string;
   assetType?: string;
+  portfolioId?: string;
 }) => {
   if (!file?.buffer) {
     throw new ApiError(400, "Uploaded file is required");
@@ -159,13 +170,14 @@ const createPortfolioAsset = async ({
   const classification = classifyFile(file, usage);
   const uploaded = await uploadBufferToCloudinary({
     buffer: file.buffer,
-    folder: getPortfolioFolder(usage, applicantId, resourceId),
+    folder: getPortfolioFolder(usage, applicantId, resourceId, portfolioId),
     resourceType: classification.resourceType
   });
 
   try {
     return await PortfolioAsset.create({
       applicantId,
+      portfolioId,
       assetType: assetType || classification.assetType,
       usage,
       cloudinaryPublicId: uploaded.public_id,

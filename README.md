@@ -269,12 +269,13 @@ Form-data:
 
 ```txt
 file: PDF, DOC, or DOCX file
-title: My Backend Developer CV
-language: VI or EN
+title: optional; defaults to the original filename without extension
+language: VI or EN (optional, default VI)
 ```
 
 Uploaded CV files are stored in Cloudinary when Cloudinary environment variables
-are configured. Use `GET /api/uploads/cv/:id/download` to download a saved CV
+are configured. The maximum CV upload size is 5 MB. Use
+`GET /api/cvs/:id/download` to download a saved CV
 with its original filename and extension.
 
 Get my CV list:
@@ -434,7 +435,7 @@ BCRYPT_SALT_ROUNDS=10
 
 STORAGE_DRIVER=cloudinary
 UPLOAD_DIR=uploads
-MAX_CV_FILE_SIZE_MB=10
+MAX_CV_FILE_SIZE_MB=5
 MAX_IMAGE_FILE_SIZE_MB=5
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=

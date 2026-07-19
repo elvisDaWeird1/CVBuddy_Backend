@@ -14,9 +14,9 @@ const uploadCvValidation = (req) => {
     errors.push({ field: "file", message: "CV file is required" });
   }
 
-  if (isBlank(title)) {
-    errors.push({ field: "title", message: "Title is required" });
-  } else if (title.trim().length > 150) {
+  if (title !== undefined && isBlank(title)) {
+    errors.push({ field: "title", message: "Title cannot be empty" });
+  } else if (typeof title === "string" && title.trim().length > 150) {
     errors.push({
       field: "title",
       message: "Title must be at most 150 characters"

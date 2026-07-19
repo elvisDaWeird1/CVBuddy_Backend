@@ -7,13 +7,19 @@ import PortfolioExperience from "./portfolioExperience.model";
 import { serializeExperience } from "./portfolioExperience.service";
 import PortfolioMoment from "./portfolioMoment.model";
 import { serializeMoment } from "./portfolioMoment.service";
-import { serializePortfolio } from "./portfolioProfile.service";
+import { serializePortfolio } from "./portfolioCollection.service";
 import { serializeEvidence } from "./portfolioEvidence.service";
 
 const toId = (value) => value?.toString();
 
 const getPublicPortfolio = async (slug: string) => {
-  const portfolio = await Portfolio.findOne({ slug, isPublic: true }).lean();
+  const portfolio = await Portfolio.findOne({
+    slug,
+    $or: [
+      { visibility: "PUBLIC" },
+      { isPublic: true }
+    ]
+  }).lean();
 
   if (!portfolio) {
     throw new ApiError(404, "Public portfolio not found");
@@ -21,6 +27,7 @@ const getPublicPortfolio = async (slug: string) => {
 
   const experiences = await PortfolioExperience.find({
     applicantId: portfolio.applicantId,
+    portfolioId: portfolio._id,
     status: PORTFOLIO_EXPERIENCE_STATUSES.PUBLISHED,
     visibility: PORTFOLIO_EXPERIENCE_VISIBILITIES.PORTFOLIO
   })
@@ -29,6 +36,7 @@ const getPublicPortfolio = async (slug: string) => {
   const experienceIds = experiences.map((experience) => experience._id);
   const moments = await PortfolioMoment.find({
     applicantId: portfolio.applicantId,
+    portfolioId: portfolio._id,
     status: PORTFOLIO_MOMENT_STATUSES.READY,
     visibility: PORTFOLIO_EXPERIENCE_VISIBILITIES.PORTFOLIO,
     $or: [{ experienceId: { $in: experienceIds } }, { experienceId: null }]
@@ -49,7 +57,8 @@ const getPublicPortfolio = async (slug: string) => {
   ];
   const assets = await PortfolioAsset.find({
     _id: { $in: assetIds },
-    applicantId: portfolio.applicantId
+    applicantId: portfolio.applicantId,
+    portfolioId: portfolio._id
   }).lean();
   const assetsById = new Map(assets.map((asset) => [asset._id.toString(), asset]));
 
@@ -86,7 +95,14 @@ const getPublicPortfolio = async (slug: string) => {
   const featuredExperiences = publicExperiences.filter((experience) => featuredIds.has(experience.id));
 
   return {
-    portfolio: serializePortfolio(portfolio, false),
+    portfolio: serializePortfolio(
+      portfolio,
+      {
+        experienceCount: publicExperiences.length,
+        momentCount: publicMoments.length
+      },
+      false
+    ),
     featuredExperiences,
     experiences: publicExperiences,
     moments: publicMoments,

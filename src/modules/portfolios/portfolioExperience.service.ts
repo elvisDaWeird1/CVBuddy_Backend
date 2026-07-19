@@ -27,6 +27,7 @@ const serializeExperience = (experience, coverAsset = null, includePrivateFields
   const payload = {
     id: toId(experience._id),
     applicantId: toId(experience.applicantId),
+    portfolioId: toId(experience.portfolioId) || null,
     type: experience.type,
     title: experience.title,
     organization: experience.organization || "",
@@ -49,6 +50,7 @@ const serializeExperience = (experience, coverAsset = null, includePrivateFields
 
   if (!includePrivateFields) {
     delete payload.applicantId;
+    delete payload.portfolioId;
     delete payload.coverAssetId;
     delete payload.status;
     delete payload.visibility;

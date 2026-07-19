@@ -12,6 +12,16 @@ const generateFeedback = asyncHandler(async (req, res) => {
   return successResponse(res, "AI feedback generated successfully", { aiResult });
 });
 
+const reviewCv = asyncHandler(async (req, res) => {
+  const aiResult = await aiService.generateFeedback(
+    req.user._id,
+    req.params.cvId,
+    req.body
+  );
+
+  return successResponse(res, "CV review generated successfully", { aiResult });
+});
+
 const generateScore = asyncHandler(async (req, res) => {
   const aiResult = await aiService.generateScore(
     req.user._id,
@@ -32,6 +42,18 @@ const translateToEnglish = asyncHandler(async (req, res) => {
   return successResponse(res, "CV translated to English successfully", { aiResult });
 });
 
+const translateAndScore = asyncHandler(async (req, res) => {
+  const workflow = await aiService.translateAndScore(
+    req.user._id,
+    req.params.cvId,
+    req.body
+  );
+
+  return successResponse(res, "Translate and score workflow completed", {
+    workflow
+  });
+});
+
 const getMyAiResults = asyncHandler(async (req, res) => {
   const aiResults = await aiService.getMyAiResults(req.user._id, {
     aiType: req.query.aiType as string | undefined,
@@ -49,8 +71,10 @@ const getMyAiResultById = asyncHandler(async (req, res) => {
 
 export {
   generateFeedback,
+  reviewCv,
   generateScore,
   translateToEnglish,
+  translateAndScore,
   getMyAiResults,
   getMyAiResultById
 };

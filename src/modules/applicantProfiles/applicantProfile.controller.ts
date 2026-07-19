@@ -1,6 +1,7 @@
 import asyncHandler from "../../utils/asyncHandler";
 import { successResponse } from "../../utils/apiResponse";
 import * as applicantProfileService from "./applicantProfile.service";
+import * as uploadService from "../uploads/upload.service";
 
 const getMyApplicantProfile = asyncHandler(async (req, res) => {
   const profile = await applicantProfileService.getProfileByAccountId(req.user._id);
@@ -21,7 +22,19 @@ const updateMyApplicantProfile = asyncHandler(async (req, res) => {
   });
 });
 
+const updateMyAvatar = asyncHandler(async (req, res) => {
+  const upload = await uploadService.uploadAvatar({
+    accountId: req.user._id,
+    file: req.file
+  });
+
+  return successResponse(res, "Avatar updated successfully", {
+    applicantProfile: upload.profile
+  });
+});
+
 export {
   getMyApplicantProfile,
-  updateMyApplicantProfile
+  updateMyApplicantProfile,
+  updateMyAvatar
 };
