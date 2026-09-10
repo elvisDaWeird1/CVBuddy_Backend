@@ -17,7 +17,11 @@ import PortfolioMoment from "./portfolioMoment.model";
 
 const toId = (value) => value?.toString();
 
-const serializeMoment = (moment, assets: unknown[] = [], includePrivateFields = true) => {
+const serializeMoment = (
+  moment,
+  assets: Array<{ secureUrl?: string }> = [],
+  includePrivateFields = true
+) => {
   if (!moment) {
     return null;
   }

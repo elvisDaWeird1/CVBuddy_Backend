@@ -20,6 +20,7 @@ const aiService = require("../src/modules/ai/ai.service");
 const ApplicantProfile = require("../src/modules/applicantProfiles/applicantProfile.model").default;
 const CVDocument = require("../src/modules/cvs/cvDocument.model").default;
 const AIResult = require("../src/modules/ai/aiResult.model").default;
+const cloudinaryConfig = require("../src/config/cloudinary.config");
 
 const file = (originalname, mimetype, buffer) => ({
   originalname,
@@ -94,6 +95,51 @@ test("CV title is optional and defaults to the original filename stem", () => {
   }), []);
   assert.equal(buildCvTitle("marketing-intern-cv.pdf"), "marketing-intern-cv");
   assert.equal(buildCvTitle("../CV Tiếng Việt.docx"), "CV Tiếng Việt");
+});
+
+test("Cloudinary configuration trims credentials and configures the shared client", () => {
+  const variableNames = [
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET"
+  ];
+  const originalValues = Object.fromEntries(
+    variableNames.map((name) => [name, process.env[name]])
+  );
+
+  process.env.CLOUDINARY_CLOUD_NAME = " test-cloud ";
+  process.env.CLOUDINARY_API_KEY = " test-key ";
+  process.env.CLOUDINARY_API_SECRET = " test-secret ";
+
+  try {
+    assert.doesNotThrow(() => cloudinaryConfig.assertCloudinaryConfigured());
+    const configured = cloudinaryConfig.default.config();
+    assert.equal(configured.cloud_name, "test-cloud");
+    assert.equal(configured.api_key, "test-key");
+    assert.equal(configured.api_secret, "test-secret");
+  } finally {
+    for (const name of variableNames) {
+      if (originalValues[name] === undefined) delete process.env[name];
+      else process.env[name] = originalValues[name];
+    }
+  }
+});
+
+test("Cloudinary configuration rejects blank credentials with a controlled error", () => {
+  const originalApiKey = process.env.CLOUDINARY_API_KEY;
+  process.env.CLOUDINARY_API_KEY = "   ";
+
+  try {
+    assert.throws(
+      () => cloudinaryConfig.assertCloudinaryConfigured(),
+      (error) => error.statusCode === 500 &&
+        error.code === "STORAGE_CONFIGURATION_MISSING" &&
+        error.errors.some((item) => item.field === "CLOUDINARY_API_KEY")
+    );
+  } finally {
+    if (originalApiKey === undefined) delete process.env.CLOUDINARY_API_KEY;
+    else process.env.CLOUDINARY_API_KEY = originalApiKey;
+  }
 });
 
 test("multi-portfolio validators enforce title, visibility and Moment image", () => {

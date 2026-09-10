@@ -6,7 +6,10 @@ import path from "path";
 import asyncHandler from "../../utils/asyncHandler";
 import { successResponse } from "../../utils/apiResponse";
 import ApiError from "../../utils/apiError";
-import { getCloudinaryConfig } from "../../config/cloudinary.config";
+import {
+  getCloudinaryConfig,
+  getCloudinarySignedDownloadUrl
+} from "../../config/cloudinary.config";
 import * as uploadService from "./upload.service";
 
 const encodeContentDispositionFilename = (filename: string) => {
@@ -44,6 +47,23 @@ const assertTrustedStorageUrl = (value: string) => {
   }
 
   return parsed;
+};
+
+const getCvStorageDownloadUrl = (cvDownload) => {
+  const trustedUrl = assertTrustedStorageUrl(cvDownload.url);
+  if (!cvDownload.publicId) {
+    return trustedUrl;
+  }
+
+  const resourceType = ["image", "video", "raw"].includes(cvDownload.resourceType)
+    ? cvDownload.resourceType
+    : "raw";
+
+  return new URL(getCloudinarySignedDownloadUrl({
+    publicId: cvDownload.publicId,
+    resourceType,
+    deliveryType: "upload"
+  }));
 };
 
 const resolveLegacyLocalCvPath = (value: string) => {
@@ -111,7 +131,7 @@ const streamCv = async (req, res, disposition: "attachment" | "inline") => {
     return;
   }
 
-  const fileResponse = await fetch(assertTrustedStorageUrl(cvDownload.url), {
+  const fileResponse = await fetch(getCvStorageDownloadUrl(cvDownload), {
     redirect: "error"
   });
 
