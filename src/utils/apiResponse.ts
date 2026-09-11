@@ -10,6 +10,7 @@ const successResponse = (
     message: string;
     data?: unknown;
     pagination?: unknown;
+    requestId?: string;
   } = {
     success: true,
     message
@@ -21,6 +22,10 @@ const successResponse = (
 
   if (pagination !== undefined) {
     payload.pagination = pagination;
+  }
+
+  if (typeof res.locals?.requestId === "string") {
+    payload.requestId = res.locals.requestId;
   }
 
   return res.status(statusCode).json(payload);
@@ -38,6 +43,7 @@ const errorResponse = (
     message: string;
     errors: unknown[];
     code?: string;
+    requestId?: string;
   } = {
     success: false,
     message,
@@ -46,6 +52,10 @@ const errorResponse = (
 
   if (code) {
     payload.code = code;
+  }
+
+  if (typeof res.locals?.requestId === "string") {
+    payload.requestId = res.locals.requestId;
   }
 
   return res.status(statusCode).json(payload);

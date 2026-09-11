@@ -10,8 +10,12 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - Swagger UI: `/api/docs`
 - OpenAPI JSON: `/api/docs.json`
 - Protected routes use `Authorization: Bearer <token>`.
-- Success response shape: `{ success: true, message, data? }`.
-- Error response shape: `{ success: false, message, errors }`.
+- Every response has an `X-Request-ID` header and envelope `requestId`; clients may
+  send a valid `X-Request-ID` to correlate a support report.
+- Success response shape: `{ success: true, message, data?, requestId }`.
+- Error response shape: `{ success: false, message, errors, code, requestId }`.
+- `code` is a stable machine-readable error category. Unexpected failures always
+  return `INTERNAL_ERROR` without exposing internal exception text.
 
 ## Current Routes
 

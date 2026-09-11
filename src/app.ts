@@ -18,6 +18,7 @@ import uploadRoutes from "./modules/uploads/upload.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 import { generalRateLimit, uploadRateLimit } from "./middlewares/rateLimit.middleware";
+import { accessLogger, requestContext } from "./middlewares/requestContext.middleware";
 import {
   getAllowedOrigins,
   getTrustProxy,
@@ -61,9 +62,12 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID"],
+  exposedHeaders: ["X-Request-ID"]
 };
 
+app.use(requestContext);
+app.use(accessLogger);
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(generalRateLimit);
