@@ -36,7 +36,9 @@ RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
 
-RUN mkdir -p uploads
+RUN mkdir -p uploads && chown -R node:node /app
+
+USER node
 
 EXPOSE 5000
 
