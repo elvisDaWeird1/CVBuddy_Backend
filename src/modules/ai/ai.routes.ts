@@ -4,6 +4,7 @@ import { ACCOUNT_ROLES } from "../../constants/enums";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { roleMiddleware } from "../../middlewares/role.middleware";
 import { validate } from "../../middlewares/validate.middleware";
+import { aiRateLimit } from "../../middlewares/rateLimit.middleware";
 import * as aiController from "./ai.controller";
 import {
   aiResultIdValidation,
@@ -16,6 +17,7 @@ const router = express.Router();
 
 router.use(authMiddleware);
 router.use(roleMiddleware(ACCOUNT_ROLES.APPLICANT));
+router.use("/cvs/:cvId", aiRateLimit);
 
 router.post(
   "/cvs/:cvId/feedback",

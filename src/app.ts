@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 
@@ -16,46 +17,38 @@ import mobileRoutes from "./modules/mobile/mobile.routes";
 import uploadRoutes from "./modules/uploads/upload.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
+import { generalRateLimit, uploadRateLimit } from "./middlewares/rateLimit.middleware";
+import {
+  getAllowedOrigins,
+  getTrustProxy,
+  isSwaggerEnabled,
+  validateSecurityConfig
+} from "./config/security";
 
+validateSecurityConfig();
 const app = express();
+const allowedOrigins = getAllowedOrigins();
 
-const parseCorsOrigins = (value?: string) => {
-  if (!value) {
-    return [];
+app.set("trust proxy", getTrustProxy());
+app.disable("x-powered-by");
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      upgradeInsecureRequests: []
+    }
   }
-
-  return value
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-};
-
-const port = process.env.PORT || "5000";
-
-const defaultAllowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "http://localhost:8081",
-  "http://127.0.0.1:8081",
-  "http://localhost:8082",
-  "http://127.0.0.1:8082",
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  `http://localhost:${port}`,
-  `http://127.0.0.1:${port}`
-];
-
-const allowedOrigins = [
-  ...parseCorsOrigins(process.env.CORS_ORIGIN),
-  ...parseCorsOrigins(process.env.CLIENT_URL),
-  ...defaultAllowedOrigins
-];
-
-const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
+}));
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || uniqueAllowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
@@ -73,30 +66,33 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(generalRateLimit);
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(
   "/uploads",
   express.static(path.join(process.cwd(), process.env.UPLOAD_DIR || "uploads"))
 );
 
-app.get("/api/docs.json", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).json(swaggerSpec);
-});
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+if (isSwaggerEnabled()) {
+  app.get("/api/docs.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    return res.status(200).json(swaggerSpec);
+  });
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+}
 
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/applicant-profile", applicantProfileRoutes);
-app.use("/api/cvs", cvRoutes);
-app.use("/api/uploads", uploadRoutes);
+app.use("/api/applicant-profile", uploadRateLimit, applicantProfileRoutes);
+app.use("/api/cvs", uploadRateLimit, cvRoutes);
+app.use("/api/uploads", uploadRateLimit, uploadRoutes);
 app.use("/api/ai", aiRoutes);
-app.use("/api/portfolio", portfolioDomainRoutes);
+app.use("/api/portfolio", uploadRateLimit, portfolioDomainRoutes);
 app.use("/api/public/portfolios", portfolioCollectionPublicRoutes);
-app.use("/api/portfolios", legacyPortfolioRoutes);
-app.use("/api/portfolio-items", portfolioItemRouter);
-app.use("/api/mobile", mobileRoutes);
+app.use("/api/portfolios", uploadRateLimit, legacyPortfolioRoutes);
+app.use("/api/portfolio-items", uploadRateLimit, portfolioItemRouter);
+app.use("/api/mobile", uploadRateLimit, mobileRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use(notFoundHandler);
