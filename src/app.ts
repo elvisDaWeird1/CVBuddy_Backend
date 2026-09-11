@@ -14,6 +14,7 @@ import portfolioDomainRoutes from "./modules/portfolios/portfolioDomain.routes";
 import portfolioCollectionPublicRoutes from "./modules/portfolios/portfolioCollectionPublic.routes";
 import mobileRoutes from "./modules/mobile/mobile.routes";
 import uploadRoutes from "./modules/uploads/upload.routes";
+import adminRoutes from "./modules/admin/admin.routes";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 
 const app = express();
@@ -96,6 +97,7 @@ app.use("/api/public/portfolios", portfolioCollectionPublicRoutes);
 app.use("/api/portfolios", legacyPortfolioRoutes);
 app.use("/api/portfolio-items", portfolioItemRouter);
 app.use("/api/mobile", mobileRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

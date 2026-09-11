@@ -3,6 +3,7 @@ import {
   applicantFeatureSwaggerPaths,
   applicantFeatureSwaggerSchemas
 } from "./applicantFeatures.swagger";
+import { adminSwaggerPaths, adminSwaggerSchemas } from "./admin.swagger";
 
 const errorResponse = {
   description: "Error response",
@@ -1158,7 +1159,8 @@ const swaggerPaths = {
     }
   },
   ...portfolioSwaggerPaths,
-  ...applicantFeatureSwaggerPaths
+  ...applicantFeatureSwaggerPaths,
+  ...adminSwaggerPaths
 };
 
 const swaggerComponents = {
@@ -2191,7 +2193,8 @@ const swaggerComponents = {
       ]
     },
     ...portfolioSwaggerSchemas,
-    ...applicantFeatureSwaggerSchemas
+    ...applicantFeatureSwaggerSchemas,
+    ...adminSwaggerSchemas
   }
 };
 

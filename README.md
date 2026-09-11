@@ -422,6 +422,18 @@ GET   /api/portfolio/public/:slug
 
 Experience, Moment, and Evidence routes are documented in `docs/api-contract.md` and `docs/portfolio-backend-handoff.local.md`. Moment creation uses `multipart/form-data` with one to five `media` files and a required `capturedAt` field. Cloudinary credentials are required for the new media/evidence/cover upload flow.
 
+## Admin Metrics
+
+Admin registration is not public. Use the protected operational command documented in `docs/admin-operations.md` to create or explicitly promote an Admin account without placing its password in command history.
+
+An authenticated Admin can read aggregate user counts from:
+
+```txt
+GET /api/admin/metrics/overview
+```
+
+Applicant and Company accounts receive `403`; anonymous requests receive `401`. The response excludes Admin accounts and contains no user-level PII.
+
 ## Environment Variables
 
 Example `.env`:

@@ -22,6 +22,7 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `PATCH /api/auth/change-password`
+- `GET /api/admin/metrics/overview`
 - `GET /api/applicant-profile/me`
 - `PATCH /api/applicant-profile/me`
 - `PATCH /api/applicant-profile/me/avatar`
@@ -60,6 +61,28 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `PATCH /api/portfolio-items/:id`
 - `DELETE /api/portfolio-items/:id`
 - `POST /api/mobile/portfolio/photos`
+
+## Admin Metrics API
+
+`GET /api/admin/metrics/overview` requires a valid `ADMIN` bearer token. Anonymous requests return `401`; authenticated Applicant or Company accounts return `403`.
+
+The response `data` contains aggregate values only:
+
+```json
+{
+  "totalUsers": 125,
+  "applicants": 100,
+  "companies": 25,
+  "activeUsers": 118,
+  "newUsersLast7Days": 14,
+  "generatedAt": "2026-09-11T12:00:00.000Z"
+}
+```
+
+- `totalUsers` is `APPLICANT + COMPANY`; `ADMIN` accounts are excluded from every metric.
+- `activeUsers` counts active Applicant and Company accounts.
+- `newUsersLast7Days` counts Applicant and Company accounts created during the preceding 7 x 24 hours, using server UTC time.
+- The endpoint never returns account identifiers, email addresses, names, CV data, or other user-level records.
 
 ## Portfolio Domain APIs
 
