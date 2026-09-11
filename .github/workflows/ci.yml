@@ -1,0 +1,43 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    name: Test, build, and package backend
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      AI_SERVICE_ENABLED: "false"
+      MONGOMS_DOWNLOAD_DIR: ${{ runner.temp }}/mongodb-binaries
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/mongodb-binaries
+          key: mongodb-memory-server-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install from lockfile
+        run: npm ci
+      - name: Run isolated test suite
+        run: npm test
+      - name: Compile TypeScript
+        run: npm run build
+      - name: Build production image
+        run: docker build --target prod --tag cvbuddy-backend:ci .
+      - name: Upload npm diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-npm-diagnostics
+          path: npm-debug.log*
+          if-no-files-found: ignore
