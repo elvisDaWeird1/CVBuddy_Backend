@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "test": "node --test --require ts-node/register/transpile-only tests/portfolio.validation.test.js tests/portfolio-singleton.test.js tests/portfolio-children-singleton.test.js tests/legacy-portfolio-write-guard.test.js tests/security-baseline.test.js tests/database-bootstrap.test.js tests/runtime-contract.test.js tests/observability.test.js tests/ai-service.integration.test.js tests/ai-service.analyze.test.js tests/cv-file-source.adapter.test.js tests/applicant-features.test.js tests/admin-metrics.test.js tests/cv-upload-contract.test.js tests/portfolio-upload-contract.test.js",
+    "test": "node --test --require ts-node/register/transpile-only tests/portfolio.validation.test.js tests/portfolio-singleton.test.js tests/portfolio-children-singleton.test.js tests/legacy-portfolio-write-guard.test.js tests/security-baseline.test.js tests/database-bootstrap.test.js tests/runtime-contract.test.js tests/observability.test.js tests/http-integration.test.js tests/ai-service.integration.test.js tests/ai-service.analyze.test.js tests/cv-file-source.adapter.test.js tests/applicant-features.test.js tests/admin-metrics.test.js tests/cv-upload-contract.test.js tests/portfolio-upload-contract.test.js",
     "migrate:single-portfolio": "ts-node scripts/migrate-single-portfolio.ts",
     "migrate:single-portfolio:apply": "ts-node scripts/migrate-single-portfolio.ts --apply",
     "preflight:legacy-portfolio": "ts-node scripts/preflight-legacy-portfolio.ts",
@@ -51,6 +51,7 @@
     "@types/node": "^26.0.0",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
+    "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.9"
   }
 }

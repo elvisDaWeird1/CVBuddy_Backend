@@ -1,6 +1,6 @@
 import ApiError from "../utils/apiError";
 import { errorResponse } from "../utils/apiResponse";
-import { writeOperationalLog } from "../utils/operationalLogger";
+import { getSafeRequestPath, writeOperationalLog } from "../utils/operationalLogger";
 
 const notFoundHandler = (req, res, next) => {
   next(new ApiError(404, "Route not found", [], "ROUTE_NOT_FOUND"));
@@ -91,7 +91,7 @@ const errorHandler = (err, req, res, next) => {
     writeOperationalLog(statusCode >= 500 ? "error" : "info", "http_error", {
       requestId: res.locals?.requestId,
       method: req.method,
-      path: req.path,
+      path: getSafeRequestPath(req.originalUrl, req.path),
       statusCode,
       code,
       errorName: err.name || "Error"

@@ -23,4 +23,9 @@ const statusCategory = (statusCode: number) => {
   return "success";
 };
 
-export { statusCategory, writeOperationalLog };
+const getSafeRequestPath = (originalUrl: unknown, fallback = "/") => {
+  if (typeof originalUrl !== "string") return fallback;
+  return originalUrl.split("?", 1)[0] || fallback;
+};
+
+export { getSafeRequestPath, statusCategory, writeOperationalLog };
