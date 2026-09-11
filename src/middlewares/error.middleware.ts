@@ -46,6 +46,8 @@ const errorHandler = (err, req, res, next) => {
       err.code === "LIMIT_FILE_SIZE"
         ? req.originalUrl.startsWith("/api/cvs")
           ? "CV file is too large"
+          : req.originalUrl.startsWith("/api/portfolio")
+            ? "Portfolio file must not exceed 5 MB"
           : "Uploaded file is too large"
         : err.message || "File upload failed";
     code = err.code === 'LIMIT_FILE_SIZE' ? 'FILE_TOO_LARGE' : 'UPLOAD_INVALID';

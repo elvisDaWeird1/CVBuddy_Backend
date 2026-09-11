@@ -106,12 +106,12 @@ The current portfolio domain uses `/api/portfolio`. All private endpoints requir
 - `DELETE /api/portfolio/experiences/:id`
 - `PATCH /api/portfolio/experiences/:id/publish`
 - `PATCH /api/portfolio/experiences/:id/archive`
-- `PATCH /api/portfolio/experiences/:id/cover` (JSON `assetId` or multipart `cover`)
+- `PATCH /api/portfolio/experiences/:id/cover` (JSON `assetId` or multipart `cover`; JPG/JPEG/PNG/WEBP, maximum 5 MB)
 - `POST /api/portfolio/experiences/:id/cover` (compatibility alias for cover update)
 
 ### Moments
 
-- `POST /api/portfolio/moments` (multipart `media`, 1�5 files; `capturedAt` is required)
+- `POST /api/portfolio/moments` (multipart `media`, 1–5 JPG/JPEG/PNG/WEBP/MP4 files, maximum 5 MB each; `capturedAt` is required)
 - `GET /api/portfolio/moments`
 - `GET /api/portfolio/moments/:id`
 - `PATCH /api/portfolio/moments/:id`
@@ -121,7 +121,7 @@ The current portfolio domain uses `/api/portfolio`. All private endpoints requir
 
 ### Evidence
 
-- `POST /api/portfolio/experiences/:experienceId/evidence` (JSON URL or multipart `file`)
+- `POST /api/portfolio/experiences/:experienceId/evidence` (JSON URL or multipart `file`; JPG/JPEG/PNG/WEBP/MP4/PDF/DOC/DOCX, maximum 5 MB)
 - `GET /api/portfolio/experiences/:experienceId/evidence`
 - `PATCH /api/portfolio/evidence/:id`
 - `DELETE /api/portfolio/evidence/:id`
