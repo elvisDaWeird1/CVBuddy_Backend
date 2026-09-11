@@ -96,15 +96,19 @@ const getOwnedPortfolio = async (applicantId, portfolioId: string) => {
 const backfillDefaultChildren = async (applicantId, portfolioId) => {
   await Promise.all([
     PortfolioExperience.updateMany(
-      { applicantId, portfolioId: { $exists: false } },
+      { applicantId, portfolioId: { $in: [null] } },
       { $set: { portfolioId } }
     ),
     PortfolioMoment.updateMany(
-      { applicantId, portfolioId: { $exists: false } },
+      { applicantId, portfolioId: { $in: [null] } },
       { $set: { portfolioId } }
     ),
     PortfolioAsset.updateMany(
-      { applicantId, portfolioId: { $exists: false } },
+      { applicantId, portfolioId: { $in: [null] } },
+      { $set: { portfolioId } }
+    ),
+    PortfolioEvidence.updateMany(
+      { applicantId, portfolioId: { $in: [null] } },
       { $set: { portfolioId } }
     )
   ]);

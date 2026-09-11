@@ -8,6 +8,7 @@ import {
 
 export interface IPortfolioEvidence extends Document {
   applicantId: Types.ObjectId;
+  portfolioId: Types.ObjectId;
   experienceId: Types.ObjectId;
   type: string;
   title: string;
@@ -24,6 +25,11 @@ const PortfolioEvidenceSchema = new mongoose.Schema<IPortfolioEvidence>(
     applicantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Account",
+      required: true
+    },
+    portfolioId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Portfolio",
       required: true
     },
     experienceId: {
@@ -57,6 +63,7 @@ PortfolioEvidenceSchema.pre("validate", function (next) {
 });
 
 PortfolioEvidenceSchema.index({ experienceId: 1, createdAt: -1 });
+PortfolioEvidenceSchema.index({ portfolioId: 1, createdAt: -1 });
 
 const PortfolioEvidence = mongoose.model<IPortfolioEvidence>(
   "PortfolioEvidence",

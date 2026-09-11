@@ -8,7 +8,7 @@ import {
 
 export interface IPortfolioAsset extends Document {
   applicantId: Types.ObjectId;
-  portfolioId?: Types.ObjectId;
+  portfolioId: Types.ObjectId;
   assetType: string;
   usage: string;
   cloudinaryPublicId: string;
@@ -30,7 +30,8 @@ const PortfolioAssetSchema = new mongoose.Schema<IPortfolioAsset>(
     },
     portfolioId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Portfolio"
+      ref: "Portfolio",
+      required: true
     },
     assetType: { type: String, enum: PORTFOLIO_ASSET_TYPE_VALUES, required: true },
     usage: { type: String, enum: PORTFOLIO_ASSET_USAGE_VALUES, required: true },

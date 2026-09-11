@@ -139,7 +139,7 @@ const createPortfolioAsset = async ({
   usage: AssetUsage;
   resourceId: string;
   assetType?: string;
-  portfolioId?: string;
+  portfolioId: string;
 }) => {
   if (!file?.buffer) {
     throw new ApiError(400, "Uploaded file is required");

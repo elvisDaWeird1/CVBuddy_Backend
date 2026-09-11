@@ -4,6 +4,7 @@ const mongoose = require('mongoose')
 
 const Portfolio = require('../src/modules/portfolios/portfolio.model').default
 const PortfolioAsset = require('../src/modules/portfolios/portfolioAsset.model').default
+const PortfolioEvidence = require('../src/modules/portfolios/portfolioEvidence.model').default
 const PortfolioExperience = require('../src/modules/portfolios/portfolioExperience.model').default
 const PortfolioMoment = require('../src/modules/portfolios/portfolioMoment.model').default
 const portfolioDomainRouter = require('../src/modules/portfolios/portfolioDomain.routes').default
@@ -72,6 +73,7 @@ test('compatibility create rejects a second Portfolio without writing', async (t
     sort: async () => existing,
   }))
   t.mock.method(PortfolioAsset, 'updateMany', async () => ({ acknowledged: true }))
+  t.mock.method(PortfolioEvidence, 'updateMany', async () => ({ acknowledged: true }))
   t.mock.method(PortfolioExperience, 'updateMany', async () => ({ acknowledged: true }))
   t.mock.method(PortfolioMoment, 'updateMany', async () => ({ acknowledged: true }))
 

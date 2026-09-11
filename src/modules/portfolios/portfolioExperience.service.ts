@@ -15,6 +15,7 @@ import {
 import PortfolioEvidence from "./portfolioEvidence.model";
 import PortfolioExperience from "./portfolioExperience.model";
 import PortfolioMoment from "./portfolioMoment.model";
+import { ensureDefaultPortfolio } from "./portfolioCollection.service";
 
 const toId = (value) => value?.toString();
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -80,7 +81,12 @@ const normalizePayload = (payload) => {
 };
 
 const getOwnedExperience = async (applicantId, experienceId) => {
-  const experience = await PortfolioExperience.findOne({ _id: experienceId, applicantId });
+  const portfolio = await ensureDefaultPortfolio(applicantId);
+  const experience = await PortfolioExperience.findOne({
+    _id: experienceId,
+    applicantId,
+    portfolioId: portfolio._id
+  });
 
   if (!experience) {
     throw new ApiError(404, "Experience not found");
@@ -98,9 +104,11 @@ const getCoverAsset = async (experience) => {
 };
 
 const createExperience = async (applicantId, payload) => {
+  const portfolio = await ensureDefaultPortfolio(applicantId);
   const experience = await PortfolioExperience.create({
     ...normalizePayload(payload),
     applicantId,
+    portfolioId: portfolio._id,
     status: payload.status || PORTFOLIO_EXPERIENCE_STATUSES.DRAFT,
     visibility: payload.visibility || PORTFOLIO_EXPERIENCE_VISIBILITIES.PRIVATE
   });
@@ -109,9 +117,10 @@ const createExperience = async (applicantId, payload) => {
 };
 
 const listExperiences = async (applicantId, query) => {
+  const portfolio = await ensureDefaultPortfolio(applicantId);
   const page = Number(query.page || 1);
   const limit = Number(query.limit || 20);
-  const filter: Record<string, unknown> = { applicantId };
+  const filter: Record<string, unknown> = { applicantId, portfolioId: portfolio._id };
 
   if (query.status) {
     filter.status = query.status;
@@ -283,6 +292,7 @@ const setExperienceCover = async ({ applicantId, experienceId, assetId, file }) 
   if (file) {
     createdAsset = await createPortfolioAsset({
       applicantId: toId(applicantId),
+      portfolioId: toId(experience.portfolioId),
       file,
       usage: PORTFOLIO_ASSET_USAGES.EXPERIENCE_COVER,
       resourceId: toId(experience._id)
@@ -297,6 +307,7 @@ const setExperienceCover = async ({ applicantId, experienceId, assetId, file }) 
   const asset = await PortfolioAsset.findOne({
     _id: nextAssetId,
     applicantId,
+    portfolioId: experience.portfolioId,
     usage: PORTFOLIO_ASSET_USAGES.EXPERIENCE_COVER
   });
 
