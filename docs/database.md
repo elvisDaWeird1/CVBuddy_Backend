@@ -39,6 +39,12 @@ Use `src/constants/enums.ts` for role, status, CV language, AI type/status, and 
 
 Do not change schema fields, collection names, indexes, enum values, or relationships unless explicitly requested.
 
+## Bootstrap and migration gate
+
+The application connects with `autoIndex: false`; index creation is an explicit deployment action, never a startup side effect. Use [the database bootstrap runbook](database-bootstrap-runbook.md) for fresh database, existing-data preflight, backup, apply, and restore steps.
+
+The canonical `Portfolio.applicantId` unique index is sparse so compatibility `LegacyPortfolio` records without that field can remain in the shared collection. It still prevents more than one canonical Portfolio for an applicant.
+
 ## New Portfolio indexes
 
 - `portfolios`: unique `applicantId`, unique `slug`. Run `npm run migrate:single-portfolio` for a non-writing preflight of duplicate owners, orphan children and conflicting links. After reviewing the report, run `npm run migrate:single-portfolio:apply` to backfill only missing child links and create the applicant index when needed; reruns are idempotent.

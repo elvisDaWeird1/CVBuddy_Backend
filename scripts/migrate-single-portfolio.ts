@@ -18,6 +18,7 @@ interface DuplicateOwner {
 type ChildModel = Model<unknown>;
 
 const APPLY = process.argv.includes("--apply") || process.env.MIGRATION_APPLY === "true";
+const BACKUP_REFERENCE = process.env.MIGRATION_BACKUP_REFERENCE?.trim();
 const childModels: Array<{ name: string; model: ChildModel }> = [
   { name: "experiences", model: PortfolioExperience },
   { name: "moments", model: PortfolioMoment },
@@ -95,9 +96,12 @@ const ensureUniqueApplicantIndex = async () => {
     Object.keys(index.key).length === 1 && index.key.applicantId === 1
   );
 
-  if (applicantIndex?.unique) return false;
+  if (applicantIndex?.unique && applicantIndex.sparse) return false;
   if (applicantIndex?.name) await Portfolio.collection.dropIndex(applicantIndex.name);
-  await Portfolio.collection.createIndex({ applicantId: 1 }, { name: "applicantId_1", unique: true });
+  await Portfolio.collection.createIndex(
+    { applicantId: 1 },
+    { name: "applicantId_1", unique: true, sparse: true }
+  );
   return true;
 };
 
@@ -116,6 +120,9 @@ const run = async () => {
   });
 
   if (!APPLY) return;
+  if (!BACKUP_REFERENCE) {
+    throw new Error("MIGRATION_BACKUP_REFERENCE is required before applying a Portfolio migration.");
+  }
   if (duplicateOwners.length) {
     throw new Error("Refusing to apply Portfolio child backfill while duplicate Portfolio owners exist.");
   }
@@ -126,6 +133,7 @@ const run = async () => {
   const createdUniqueApplicantIndex = await ensureUniqueApplicantIndex();
   console.log("Single Portfolio migration applied", {
     modifiedChildren,
+    backupReference: BACKUP_REFERENCE,
     createdUniqueApplicantIndex,
     portfolioCount: await Portfolio.countDocuments({})
   });
