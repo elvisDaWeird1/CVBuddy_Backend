@@ -1173,6 +1173,16 @@ const swaggerPaths = {
       }
     }
   },
+  "/api/health/ready": {
+    get: {
+      tags: ["Health"],
+      summary: "Check backend readiness",
+      responses: {
+        200: { description: "Backend is ready" },
+        503: { description: "A required dependency or configuration is not ready" }
+      }
+    }
+  },
   ...portfolioSwaggerPaths,
   ...applicantFeatureSwaggerPaths,
   ...adminSwaggerPaths

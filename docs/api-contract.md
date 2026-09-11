@@ -15,7 +15,8 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 
 ## Current Routes
 
-- `GET /api/health`
+- `GET /api/health` (liveness; does not call external dependencies)
+- `GET /api/health/ready` (readiness; returns 503 until Mongo, Cloudinary configuration, and enabled-AI URL checks pass)
 - `POST /api/auth/register/applicant`
 - `POST /api/auth/register/company`
 - `POST /api/auth/login`
