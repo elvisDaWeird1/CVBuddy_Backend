@@ -268,7 +268,7 @@ Content-Type: multipart/form-data
 Form-data:
 
 ```txt
-file: PDF, DOC, or DOCX file
+file: PDF or DOCX file
 title: optional; defaults to the original filename without extension
 language: VI or EN (optional, default VI)
 ```
@@ -276,7 +276,8 @@ language: VI or EN (optional, default VI)
 Uploaded CV files are stored in Cloudinary when Cloudinary environment variables
 are configured. The maximum CV upload size is 5 MB. Use
 `GET /api/cvs/:id/download` to download a saved CV
-with its original filename and extension.
+with its original filename and extension. Existing legacy DOC records remain
+available for download, but new DOC uploads and inline DOC previews are unsupported.
 
 Get my CV list:
 

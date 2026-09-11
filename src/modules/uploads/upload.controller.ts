@@ -105,7 +105,7 @@ const streamCv = async (req, res, disposition: "attachment" | "inline") => {
     throw new ApiError(
       415,
       "Preview is only available for PDF CVs",
-      [{ field: "id", code: "CV_PREVIEW_UNSUPPORTED", message: "DOC and DOCX require download" }],
+      [{ field: "id", code: "CV_PREVIEW_UNSUPPORTED", message: "Non-PDF CVs require download" }],
       "CV_PREVIEW_UNSUPPORTED"
     );
   }

@@ -103,7 +103,6 @@ const getFileType = (file) => {
 
 const getCvMimeType = (fileType: string) => {
   if (fileType === "pdf") return "application/pdf";
-  if (fileType === "doc") return "application/msword";
   return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 };
 

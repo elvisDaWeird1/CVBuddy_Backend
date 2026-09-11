@@ -157,7 +157,7 @@ Status: Partially done
 
 What is implemented:
 - Applicant-only CV upload using `multipart/form-data` field `file`.
-- Allowed CV files: PDF, DOC, and DOCX by extension and MIME type.
+- Allowed new CV uploads: PDF and DOCX up to 5 MB, validated by size, extension, MIME type, and file signature.
 - Cloudinary storage under `cvbuddy/cvs` using multer memory storage, `resource_type: raw`, and public ids that include the sanitized original filename extension.
 - CV documents store `originalName`, `mimeType`, and `size` for controlled downloads.
 - CV metadata stored in `cv_documents`.
@@ -183,6 +183,7 @@ API routes:
 - `GET /api/uploads/cv/:id/download`
 
 Notes / limitations:
+- Existing legacy DOC records remain downloadable; new DOC uploads and DOC previews are unsupported.
 - `extractTextFromCv` is a stub and always returns an empty string.
 - There is no real PDF/DOCX text extraction yet.
 - There is no endpoint to update CV metadata or permanently delete files.

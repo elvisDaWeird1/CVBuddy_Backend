@@ -7,13 +7,13 @@ import {
   MAX_IMAGE_FILE_SIZE_BYTES
 } from "../utils/uploadFile";
 
-const ALLOWED_CV_EXTENSIONS = [".pdf", ".doc", ".docx"];
-const ALLOWED_CV_MIME_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/octet-stream"
-];
+const ALLOWED_CV_MIME_BY_EXTENSION = {
+  ".pdf": ["application/pdf"],
+  ".docx": [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/octet-stream"
+  ]
+};
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -37,15 +37,15 @@ const memoryStorage = multer.memoryStorage();
 
 const cvFileFilter = (req, file, cb) => {
   const extension = path.extname(file.originalname).toLowerCase();
-  const hasAllowedExtension = ALLOWED_CV_EXTENSIONS.includes(extension);
-  const hasAllowedMimeType = ALLOWED_CV_MIME_TYPES.includes(file.mimetype);
+  const allowedMimeTypes = ALLOWED_CV_MIME_BY_EXTENSION[extension];
+  const hasAllowedMimeType = allowedMimeTypes?.includes(file.mimetype);
 
-  if (!hasAllowedExtension || !hasAllowedMimeType) {
+  if (!allowedMimeTypes || !hasAllowedMimeType) {
     return cb(
-      new ApiError(400, "Only PDF, DOC, and DOCX CV files are allowed", [
+      new ApiError(400, "Only PDF and DOCX CV files are allowed", [
         {
           field: "file",
-          message: "File must be .pdf, .doc, or .docx"
+          message: "File must be .pdf or .docx"
         }
       ])
     );

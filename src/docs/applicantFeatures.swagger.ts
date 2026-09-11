@@ -289,7 +289,7 @@ const applicantFeatureSwaggerPaths = {
     get: {
       tags: ["CV"],
       summary: "Render an owned PDF CV inline",
-      description: "DOC and DOCX return 415 CV_PREVIEW_UNSUPPORTED.",
+      description: "Non-PDF CVs return 415 CV_PREVIEW_UNSUPPORTED.",
       security: bearerSecurity,
       parameters: [idParameter("id")],
       responses: {

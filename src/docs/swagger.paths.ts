@@ -463,7 +463,7 @@ const swaggerPaths = {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "PDF, DOC, or DOCX CV file; maximum 5 MB"
+                  description: "PDF or DOCX CV file; maximum 5 MB"
                 }
               }
             }
@@ -544,7 +544,7 @@ const swaggerPaths = {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "PDF, DOC, or DOCX CV file; maximum 5 MB"
+                  description: "PDF or DOCX CV file; maximum 5 MB"
                 },
                 title: {
                   type: "string",

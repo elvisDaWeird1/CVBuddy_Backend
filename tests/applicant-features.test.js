@@ -65,16 +65,9 @@ test("avatar validation rejects an extension-only fake and an empty file", () =>
   );
 });
 
-test("CV validation accepts PDF, DOC and DOCX signatures", () => {
+test("CV validation accepts PDF and DOCX signatures", () => {
   assert.doesNotThrow(() => assertCvFileContent(
     file("cv.pdf", "application/pdf", Buffer.from("%PDF-1.4"))
-  ));
-  assert.doesNotThrow(() => assertCvFileContent(
-    file(
-      "cv.doc",
-      "application/msword",
-      Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])
-    )
   ));
   assert.doesNotThrow(() => assertCvFileContent(
     file(

@@ -133,7 +133,7 @@ Do not change these contracts without an explicit API task.
 ## Applicant feature contract decisions (2026-07-17)
 
 - Avatar: PATCH /api/applicant-profile/me/avatar, multipart field avatar, JPEG/PNG/WebP, maximum 5 MB. PATCH profile no longer accepts avatarUrl. GET /api/auth/me includes profile.avatarUrl.
-- CV: POST /api/cvs accepts PDF/DOC/DOCX up to 5 MB; title is optional and defaults to the original filename stem. originalName is the persisted filename field. Download is GET /api/cvs/:id/download. Preview is PDF-only at GET /api/cvs/:id/preview.
+- CV: POST /api/cvs accepts PDF/DOCX up to 5 MB; title is optional and defaults to the original filename stem. originalName is the persisted filename field. Download is GET /api/cvs/:id/download. Preview is PDF-only at GET /api/cvs/:id/preview. Existing legacy DOC records are retained and remain downloadable, but new DOC uploads and DOC previews are unsupported.
 - CV delete: any AIResult reference blocks delete with HTTP 409 and code CV_IN_USE. No force delete endpoint exists.
 - AI: Review CV maps to one CV_FEEDBACK result. Translate-and-Score is synchronous orchestration returning two result ids and per-step COMPLETED/FAILED status. The result detail endpoint remains the read-only polling contract.
 - Single Portfolio: each Applicant owns at most one Portfolio. `/api/portfolio` is the canonical domain API; `GET /api/portfolio/me` returns `data.portfolio: null` until the first `PUT /api/portfolio/me` creates it.

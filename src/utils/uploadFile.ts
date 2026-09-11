@@ -77,12 +77,17 @@ const assertImageFileContent = (
 const assertCvFileContent = (file: Express.Multer.File | undefined) => {
   file = assertFileBuffer(file, "file");
 
+  if (file.size > MAX_CV_FILE_SIZE_BYTES || file.buffer.length > MAX_CV_FILE_SIZE_BYTES) {
+    throw errorWithCode(
+      413,
+      "FILE_TOO_LARGE",
+      "CV file must not exceed 5 MB",
+      "file"
+    );
+  }
+
   const extension = path.extname(sanitizeOriginalFilename(file.originalname)).toLowerCase();
   const isPdf = file.buffer.toString("ascii", 0, 4) === "%PDF";
-  const isDoc = startsWithBytes(
-    file.buffer,
-    [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
-  );
   const isZip =
     startsWithBytes(file.buffer, [0x50, 0x4b, 0x03, 0x04]) ||
     startsWithBytes(file.buffer, [0x50, 0x4b, 0x05, 0x06]) ||
@@ -94,9 +99,6 @@ const assertCvFileContent = (file: Express.Multer.File | undefined) => {
 
   const valid =
     (extension === ".pdf" && file.mimetype === "application/pdf" && isPdf) ||
-    (extension === ".doc" &&
-      ["application/msword", "application/octet-stream"].includes(file.mimetype) &&
-      isDoc) ||
     (extension === ".docx" &&
       [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
