@@ -126,7 +126,7 @@ The current portfolio domain uses `/api/portfolio`. All private endpoints requir
 - `PATCH /api/portfolio/evidence/:id`
 - `DELETE /api/portfolio/evidence/:id`
 
-The legacy `/api/portfolios`, `/api/portfolio-items`, and `/api/mobile/portfolio/photos` routes remain mounted for existing clients. New clients should use the domain routes above.
+The legacy `/api/portfolios/me`, `/api/portfolio-items`, and `/api/mobile/portfolio/photos` routes remain mounted for existing clients. New clients should use the domain routes above. Legacy writes are disabled by default when `NODE_ENV=production` and return `410 LEGACY_PORTFOLIO_WRITES_DISABLED`; a time-bound rollback can explicitly set `ENABLE_LEGACY_PORTFOLIO_WRITES=true`.
 
 Do not change these contracts without an explicit API task.
 
@@ -137,7 +137,7 @@ Do not change these contracts without an explicit API task.
 - CV delete: any AIResult reference blocks delete with HTTP 409 and code CV_IN_USE. No force delete endpoint exists.
 - AI: Review CV maps to one CV_FEEDBACK result. Translate-and-Score is synchronous orchestration returning two result ids and per-step COMPLETED/FAILED status. The result detail endpoint remains the read-only polling contract.
 - Single Portfolio: each Applicant owns at most one Portfolio. `/api/portfolio` is the canonical domain API; `GET /api/portfolio/me` returns `data.portfolio: null` until the first `PUT /api/portfolio/me` creates it.
-- Compatibility: `/api/portfolios` remains mounted for existing clients, but `POST /api/portfolios` returns `409 PORTFOLIO_ALREADY_EXISTS` when the Applicant already owns a Portfolio. Nested compatibility routes remain owner-scoped.
+- Compatibility: canonical collection routes under `/api/portfolios` remain mounted, and `POST /api/portfolios` returns `409 PORTFOLIO_ALREADY_EXISTS` when the Applicant already owns a Portfolio. The legacy `/me`, PortfolioItem, and mobile-photo write routes are production-disabled by default; read routes remain available for compatibility.
 
 The complete request/response examples, error codes, migration requirement and frontend integration notes are in docs/applicant-features-frontend-handoff.local.md.
 

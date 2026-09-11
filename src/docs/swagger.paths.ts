@@ -883,6 +883,8 @@ const swaggerPaths = {
     patch: {
       tags: ["Portfolio"],
       summary: "Update my portfolio",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use /api/portfolio/me instead.",
       security: bearerSecurity,
       requestBody: {
         required: true,
@@ -914,7 +916,8 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        410: errorResponse
       }
     }
   },
@@ -943,6 +946,8 @@ const swaggerPaths = {
     post: {
       tags: ["Portfolio"],
       summary: "Create portfolio item",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use /api/portfolio instead.",
       security: bearerSecurity,
       requestBody: {
         required: true,
@@ -979,7 +984,8 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        410: errorResponse
       }
     }
   },
@@ -1031,6 +1037,8 @@ const swaggerPaths = {
     patch: {
       tags: ["Portfolio"],
       summary: "Update my portfolio item",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use /api/portfolio instead.",
       security: bearerSecurity,
       parameters: [portfolioItemIdParameter],
       requestBody: {
@@ -1066,12 +1074,15 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        410: errorResponse
       }
     },
     delete: {
       tags: ["Portfolio"],
       summary: "Delete my portfolio item",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use /api/portfolio instead.",
       security: bearerSecurity,
       parameters: [portfolioItemIdParameter],
       responses: {
@@ -1092,7 +1103,8 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        410: errorResponse
       }
     }
   },
@@ -1100,6 +1112,8 @@ const swaggerPaths = {
     post: {
       tags: ["Mobile"],
       summary: "Upload photo from mobile app to portfolio",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use the canonical Portfolio API instead.",
       security: bearerSecurity,
       requestBody: {
         required: true,
@@ -1154,7 +1168,8 @@ const swaggerPaths = {
         },
         400: errorResponse,
         401: errorResponse,
-        403: errorResponse
+        403: errorResponse,
+        410: errorResponse
       }
     }
   },
