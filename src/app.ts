@@ -89,7 +89,7 @@ if (isSwaggerEnabled()) {
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/applicant-profile", uploadRateLimit, applicantProfileRoutes);
-app.use("/api/cvs", uploadRateLimit, cvRoutes);
+app.use("/api/cvs", cvRoutes);
 app.use("/api/uploads", uploadRateLimit, uploadRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/portfolio", uploadRateLimit, portfolioDomainRoutes);

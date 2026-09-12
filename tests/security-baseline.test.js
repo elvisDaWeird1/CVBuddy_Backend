@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const http = require("node:http");
 const test = require("node:test");
 const express = require("express");
@@ -85,6 +87,14 @@ test("rate limiter returns 429 after its configured threshold", async () => {
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
+});
+
+test("CV upload limiter applies only to the upload route, not CV reads", () => {
+  const appSource = fs.readFileSync(path.join(__dirname, "../src/app.ts"), "utf8");
+  const cvRoutesSource = fs.readFileSync(path.join(__dirname, "../src/modules/cvs/cv.routes.ts"), "utf8");
+
+  assert.doesNotMatch(appSource, /app\.use\("\/api\/cvs", uploadRateLimit, cvRoutes\)/);
+  assert.match(cvRoutesSource, /router\.post\("\/", uploadRateLimit, uploadCv/);
 });
 
 test("application responses include Helmet headers and omit X-Powered-By", async () => {
