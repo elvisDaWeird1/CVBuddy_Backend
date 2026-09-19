@@ -18,7 +18,7 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 - `PortfolioExperience` -> `portfolio_experiences`: applicantId, portfolioId, type, title, organization, role, startDate, endDate, isCurrent, location, description, responsibilities, achievements, skills, coverAssetId, status, visibility, createdAt, updatedAt.
 - `PortfolioMoment` -> `portfolio_moments`: applicantId, portfolioId, experienceId, caption, capturedAt, location, mediaAssetIds, skills, status, visibility, createdAt, updatedAt.
 - `PortfolioAsset` -> `portfolio_assets`: applicantId, portfolioId, assetType, usage, cloudinaryPublicId, cloudinaryResourceType, secureUrl, originalFilename, mimeType, format, bytes, createdAt.
-- `PortfolioEvidence` -> `portfolio_evidence`: applicantId, experienceId, type, title, description, url, assetId, verificationStatus, createdAt, updatedAt.
+- `PortfolioEvidence` -> `portfolio_evidence`: applicantId, portfolioId, experienceId, type, title, description, url, assetId, verificationStatus, createdAt, updatedAt.
 
 ## Important Relationships
 
@@ -28,8 +28,8 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 - `AIResult.accountId` references `Account`; `cvDocumentId` references `CVDocument` when present.
 - `Portfolio.applicantProfileId` references `ApplicantProfile` and is unique.
 - `PortfolioItem.portfolioId` references `Portfolio`.
-- Portfolio ownership uses `applicantId` referencing `Account._id`; one applicant may own many Portfolio records and ownership is always derived from JWT context.
-- `PortfolioExperience.portfolioId` and `PortfolioMoment.portfolioId` reference exactly one Portfolio.
+- Canonical Portfolio ownership uses `applicantId` referencing `Account._id`; one applicant owns exactly one Portfolio and ownership is always derived from JWT context.
+- `PortfolioExperience.portfolioId`, `PortfolioMoment.portfolioId`, `PortfolioAsset.portfolioId` and `PortfolioEvidence.portfolioId` reference exactly one canonical Portfolio.
 - `PortfolioMoment.experienceId` is nullable and owns the Moment → Experience relationship; Experiences do not store `momentIds`.
 - Portfolio assets reference Cloudinary resources and are cleaned up when their owning Moment/Evidence/Cover is removed and no other reference remains.
 
@@ -39,15 +39,22 @@ Use `src/constants/enums.ts` for role, status, CV language, AI type/status, and 
 
 Do not change schema fields, collection names, indexes, enum values, or relationships unless explicitly requested.
 
+## Bootstrap and migration gate
+
+The application connects with `autoIndex: false`; index creation is an explicit deployment action, never a startup side effect. Use [the database bootstrap runbook](database-bootstrap-runbook.md) for fresh database, existing-data preflight, backup, apply, and restore steps.
+
+The canonical `Portfolio.applicantId` unique index is sparse so compatibility `LegacyPortfolio` records without that field can remain in the shared collection. It still prevents more than one canonical Portfolio for an applicant.
+
 ## New Portfolio indexes
 
-- `portfolios`: `{ applicantId, updatedAt }`, unique `slug`. The historical unique `applicantId` index must be dropped by the multiple-portfolio migration.
+- `portfolios`: unique `applicantId`, unique `slug`. Run `npm run migrate:single-portfolio` for a non-writing preflight of duplicate owners, orphan children and conflicting links. After reviewing the report, run `npm run migrate:single-portfolio:apply` to backfill only missing child links and create the applicant index when needed; reruns are idempotent.
 - `portfolio_experiences`: `{ applicantId, status }`, `{ applicantId, type }`, `{ applicantId, createdAt }`.
 - `portfolio_moments`: `{ applicantId, createdAt }`, `{ experienceId, capturedAt }`.
 - `portfolio_experiences`: `{ portfolioId, createdAt }`.
 - `portfolio_moments`: `{ portfolioId, capturedAt }`.
 - `portfolio_assets`: `{ portfolioId, createdAt }`.
+- `portfolio_evidence`: `{ portfolioId, createdAt }`.
 - `portfolio_assets`: `{ applicantId, createdAt }`.
 - `portfolio_evidence`: `{ experienceId, createdAt }`.
 
-The existing MVP `Portfolio`/`PortfolioItem` contract is retained through a compatibility model for legacy routes. No migration runs at application startup. Run `npm run migrate:multiple-portfolios` before enabling multiple-Portfolio writes on an existing database; request-time compatibility only converts/backfills the authenticated applicant default Portfolio.
+The existing MVP `Portfolio`/`PortfolioItem` contract is retained through compatibility routes, but every Applicant owns at most one Portfolio. No migration runs at application startup. The single-Portfolio migration refuses to modify duplicate owners so existing media can be resolved without silent data loss.

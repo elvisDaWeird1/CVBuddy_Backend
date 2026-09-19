@@ -14,6 +14,7 @@ import {
 import PortfolioEvidence from "./portfolioEvidence.model";
 import PortfolioExperience from "./portfolioExperience.model";
 import PortfolioMoment from "./portfolioMoment.model";
+import { ensureDefaultPortfolio } from "./portfolioCollection.service";
 
 const toId = (value) => value?.toString();
 
@@ -47,7 +48,12 @@ const serializeEvidence = (evidence, asset = null, includePrivateFields = true) 
 };
 
 const getOwnedExperience = async (applicantId, experienceId) => {
-  const experience = await PortfolioExperience.findOne({ _id: experienceId, applicantId });
+  const portfolio = await ensureDefaultPortfolio(applicantId);
+  const experience = await PortfolioExperience.findOne({
+    _id: experienceId,
+    applicantId,
+    portfolioId: portfolio._id
+  });
   if (!experience) {
     throw new ApiError(404, "Experience not found");
   }
@@ -55,7 +61,12 @@ const getOwnedExperience = async (applicantId, experienceId) => {
 };
 
 const getOwnedEvidence = async (applicantId, evidenceId) => {
-  const evidence = await PortfolioEvidence.findOne({ _id: evidenceId, applicantId });
+  const portfolio = await ensureDefaultPortfolio(applicantId);
+  const evidence = await PortfolioEvidence.findOne({
+    _id: evidenceId,
+    applicantId,
+    portfolioId: portfolio._id
+  });
   if (!evidence) {
     throw new ApiError(404, "Evidence not found");
   }
@@ -89,7 +100,7 @@ const assertClientVerificationStatus = (verificationStatus) => {
 };
 
 const createEvidence = async ({ applicantId, experienceId, payload, file }) => {
-  await getOwnedExperience(applicantId, experienceId);
+  const experience = await getOwnedExperience(applicantId, experienceId);
   assertHasSource(payload, file);
   assertClientVerificationStatus(payload.verificationStatus);
   let asset = null;
@@ -98,6 +109,7 @@ const createEvidence = async ({ applicantId, experienceId, payload, file }) => {
     if (file) {
       asset = await createPortfolioAsset({
         applicantId: toId(applicantId),
+        portfolioId: toId(experience.portfolioId),
         file,
         usage: PORTFOLIO_ASSET_USAGES.EXPERIENCE_EVIDENCE,
         resourceId: toId(experienceId),
@@ -108,6 +120,7 @@ const createEvidence = async ({ applicantId, experienceId, payload, file }) => {
 
     const evidence = await PortfolioEvidence.create({
       applicantId,
+      portfolioId: experience.portfolioId,
       experienceId,
       type: payload.type,
       title: payload.title.trim(),
@@ -183,6 +196,7 @@ const updateEvidence = async ({ applicantId, evidenceId, payload, file }) => {
   if (file) {
     nextAsset = await createPortfolioAsset({
       applicantId: toId(applicantId),
+      portfolioId: toId(evidence.portfolioId),
       file,
       usage: PORTFOLIO_ASSET_USAGES.EXPERIENCE_EVIDENCE,
       resourceId: toId(evidence.experienceId),

@@ -4,6 +4,17 @@ import ApiError from "./apiError";
 
 const MAX_CV_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_PORTFOLIO_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const PORTFOLIO_FILE_MIME_BY_EXTENSION = {
+  ".jpg": ["image/jpeg"],
+  ".jpeg": ["image/jpeg"],
+  ".png": ["image/png"],
+  ".webp": ["image/webp"],
+  ".mp4": ["video/mp4"],
+  ".pdf": ["application/pdf"],
+  ".doc": ["application/msword"],
+  ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+};
 
 const startsWithBytes = (buffer: Buffer, bytes: number[]) =>
   bytes.every((byte, index) => buffer[index] === byte);
@@ -77,12 +88,17 @@ const assertImageFileContent = (
 const assertCvFileContent = (file: Express.Multer.File | undefined) => {
   file = assertFileBuffer(file, "file");
 
+  if (file.size > MAX_CV_FILE_SIZE_BYTES || file.buffer.length > MAX_CV_FILE_SIZE_BYTES) {
+    throw errorWithCode(
+      413,
+      "FILE_TOO_LARGE",
+      "CV file must not exceed 5 MB",
+      "file"
+    );
+  }
+
   const extension = path.extname(sanitizeOriginalFilename(file.originalname)).toLowerCase();
   const isPdf = file.buffer.toString("ascii", 0, 4) === "%PDF";
-  const isDoc = startsWithBytes(
-    file.buffer,
-    [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
-  );
   const isZip =
     startsWithBytes(file.buffer, [0x50, 0x4b, 0x03, 0x04]) ||
     startsWithBytes(file.buffer, [0x50, 0x4b, 0x05, 0x06]) ||
@@ -94,9 +110,6 @@ const assertCvFileContent = (file: Express.Multer.File | undefined) => {
 
   const valid =
     (extension === ".pdf" && file.mimetype === "application/pdf" && isPdf) ||
-    (extension === ".doc" &&
-      ["application/msword", "application/octet-stream"].includes(file.mimetype) &&
-      isDoc) ||
     (extension === ".docx" &&
       [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -114,11 +127,69 @@ const assertCvFileContent = (file: Express.Multer.File | undefined) => {
   }
 };
 
+const assertPortfolioFileContent = (
+  file: Express.Multer.File | undefined,
+  field = "file"
+) => {
+  file = assertFileBuffer(file, field);
+
+  if (file.size > MAX_PORTFOLIO_FILE_SIZE_BYTES || file.buffer.length > MAX_PORTFOLIO_FILE_SIZE_BYTES) {
+    throw errorWithCode(413, "FILE_TOO_LARGE", "Portfolio file must not exceed 5 MB", field);
+  }
+
+  const extension = path.extname(sanitizeOriginalFilename(file.originalname)).toLowerCase();
+  const expectedMimeTypes = PORTFOLIO_FILE_MIME_BY_EXTENSION[extension];
+
+  if (!expectedMimeTypes || !expectedMimeTypes.includes(file.mimetype)) {
+    throw errorWithCode(
+      400,
+      "INVALID_PORTFOLIO_FILE",
+      "Portfolio file type is not supported",
+      field
+    );
+  }
+
+  const isJpeg = startsWithBytes(file.buffer, [0xff, 0xd8, 0xff]);
+  const isPng = startsWithBytes(file.buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const isWebp = startsWithBytes(file.buffer, [0x52, 0x49, 0x46, 0x46]) && file.buffer.toString("ascii", 8, 12) === "WEBP";
+  const isMp4 = file.buffer.toString("ascii", 4, 8) === "ftyp";
+  const isPdf = file.buffer.toString("ascii", 0, 4) === "%PDF";
+  const isDoc = startsWithBytes(file.buffer, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+  const isDocx =
+    (startsWithBytes(file.buffer, [0x50, 0x4b, 0x03, 0x04]) ||
+      startsWithBytes(file.buffer, [0x50, 0x4b, 0x05, 0x06]) ||
+      startsWithBytes(file.buffer, [0x50, 0x4b, 0x07, 0x08])) &&
+    (file.buffer.includes(Buffer.from("[Content_Types].xml")) || file.buffer.includes(Buffer.from("word/")));
+  const signatures = {
+    "image/jpeg": isJpeg,
+    "image/png": isPng,
+    "image/webp": isWebp,
+    "video/mp4": isMp4,
+    "application/pdf": isPdf,
+    "application/msword": isDoc,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": isDocx
+  };
+
+  if (!signatures[file.mimetype]) {
+    throw errorWithCode(
+      400,
+      "INVALID_FILE_SIGNATURE",
+      "Portfolio file content does not match its declared type",
+      field
+    );
+  }
+
+  return file;
+};
+
 export {
   MAX_CV_FILE_SIZE_BYTES,
   MAX_IMAGE_FILE_SIZE_BYTES,
+  MAX_PORTFOLIO_FILE_SIZE_BYTES,
+  PORTFOLIO_FILE_MIME_BY_EXTENSION,
   assertCvFileContent,
   assertFileBuffer,
   assertImageFileContent,
+  assertPortfolioFileContent,
   sanitizeOriginalFilename
 };

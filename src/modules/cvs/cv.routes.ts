@@ -4,6 +4,7 @@ import { ACCOUNT_ROLES } from "../../constants/enums";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { roleMiddleware } from "../../middlewares/role.middleware";
 import { uploadCv } from "../../middlewares/upload.middleware";
+import { uploadRateLimit } from "../../middlewares/rateLimit.middleware";
 import { validate } from "../../middlewares/validate.middleware";
 import * as cvController from "./cv.controller";
 import * as uploadController from "../uploads/upload.controller";
@@ -14,7 +15,7 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(roleMiddleware(ACCOUNT_ROLES.APPLICANT));
 
-router.post("/", uploadCv, validate(uploadCvValidation), cvController.uploadCv);
+router.post("/", uploadRateLimit, uploadCv, validate(uploadCvValidation), cvController.uploadCv);
 
 router.get("/", cvController.getMyCvs);
 

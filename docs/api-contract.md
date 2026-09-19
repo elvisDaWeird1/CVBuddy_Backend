@@ -10,18 +10,24 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - Swagger UI: `/api/docs`
 - OpenAPI JSON: `/api/docs.json`
 - Protected routes use `Authorization: Bearer <token>`.
-- Success response shape: `{ success: true, message, data? }`.
-- Error response shape: `{ success: false, message, errors }`.
+- Every response has an `X-Request-ID` header and envelope `requestId`; clients may
+  send a valid `X-Request-ID` to correlate a support report.
+- Success response shape: `{ success: true, message, data?, requestId }`.
+- Error response shape: `{ success: false, message, errors, code, requestId }`.
+- `code` is a stable machine-readable error category. Unexpected failures always
+  return `INTERNAL_ERROR` without exposing internal exception text.
 
 ## Current Routes
 
-- `GET /api/health`
+- `GET /api/health` (liveness; does not call external dependencies)
+- `GET /api/health/ready` (readiness; returns 503 until Mongo, Cloudinary configuration, and enabled-AI URL checks pass)
 - `POST /api/auth/register/applicant`
 - `POST /api/auth/register/company`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `PATCH /api/auth/change-password`
+- `GET /api/admin/metrics/overview`
 - `GET /api/applicant-profile/me`
 - `PATCH /api/applicant-profile/me`
 - `PATCH /api/applicant-profile/me/avatar`
@@ -61,6 +67,28 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `DELETE /api/portfolio-items/:id`
 - `POST /api/mobile/portfolio/photos`
 
+## Admin Metrics API
+
+`GET /api/admin/metrics/overview` requires a valid `ADMIN` bearer token. Anonymous requests return `401`; authenticated Applicant or Company accounts return `403`.
+
+The response `data` contains aggregate values only:
+
+```json
+{
+  "totalUsers": 125,
+  "applicants": 100,
+  "companies": 25,
+  "activeUsers": 118,
+  "newUsersLast7Days": 14,
+  "generatedAt": "2026-09-11T12:00:00.000Z"
+}
+```
+
+- `totalUsers` is `APPLICANT + COMPANY`; `ADMIN` accounts are excluded from every metric.
+- `activeUsers` counts active Applicant and Company accounts.
+- `newUsersLast7Days` counts Applicant and Company accounts created during the preceding 7 x 24 hours, using server UTC time.
+- The endpoint never returns account identifiers, email addresses, names, CV data, or other user-level records.
+
 ## Portfolio Domain APIs
 
 The current portfolio domain uses `/api/portfolio`. All private endpoints require an Applicant JWT; ownership is derived from the authenticated account and clients must not send `applicantId`.
@@ -83,12 +111,12 @@ The current portfolio domain uses `/api/portfolio`. All private endpoints requir
 - `DELETE /api/portfolio/experiences/:id`
 - `PATCH /api/portfolio/experiences/:id/publish`
 - `PATCH /api/portfolio/experiences/:id/archive`
-- `PATCH /api/portfolio/experiences/:id/cover` (JSON `assetId` or multipart `cover`)
+- `PATCH /api/portfolio/experiences/:id/cover` (JSON `assetId` or multipart `cover`; JPG/JPEG/PNG/WEBP, maximum 5 MB)
 - `POST /api/portfolio/experiences/:id/cover` (compatibility alias for cover update)
 
 ### Moments
 
-- `POST /api/portfolio/moments` (multipart `media`, 1�5 files; `capturedAt` is required)
+- `POST /api/portfolio/moments` (multipart `media`, 1–5 JPG/JPEG/PNG/WEBP/MP4 files, maximum 5 MB each; `capturedAt` is required)
 - `GET /api/portfolio/moments`
 - `GET /api/portfolio/moments/:id`
 - `PATCH /api/portfolio/moments/:id`
@@ -98,23 +126,23 @@ The current portfolio domain uses `/api/portfolio`. All private endpoints requir
 
 ### Evidence
 
-- `POST /api/portfolio/experiences/:experienceId/evidence` (JSON URL or multipart `file`)
+- `POST /api/portfolio/experiences/:experienceId/evidence` (JSON URL or multipart `file`; JPG/JPEG/PNG/WEBP/MP4/PDF/DOC/DOCX, maximum 5 MB)
 - `GET /api/portfolio/experiences/:experienceId/evidence`
 - `PATCH /api/portfolio/evidence/:id`
 - `DELETE /api/portfolio/evidence/:id`
 
-The legacy `/api/portfolios`, `/api/portfolio-items`, and `/api/mobile/portfolio/photos` routes remain mounted for existing clients. New clients should use the domain routes above.
+The legacy `/api/portfolios/me`, `/api/portfolio-items`, and `/api/mobile/portfolio/photos` routes remain mounted for existing clients. New clients should use the domain routes above. Legacy writes are disabled by default when `NODE_ENV=production` and return `410 LEGACY_PORTFOLIO_WRITES_DISABLED`; a time-bound rollback can explicitly set `ENABLE_LEGACY_PORTFOLIO_WRITES=true`.
 
 Do not change these contracts without an explicit API task.
 
 ## Applicant feature contract decisions (2026-07-17)
 
 - Avatar: PATCH /api/applicant-profile/me/avatar, multipart field avatar, JPEG/PNG/WebP, maximum 5 MB. PATCH profile no longer accepts avatarUrl. GET /api/auth/me includes profile.avatarUrl.
-- CV: POST /api/cvs accepts PDF/DOC/DOCX up to 5 MB; title is optional and defaults to the original filename stem. originalName is the persisted filename field. Download is GET /api/cvs/:id/download. Preview is PDF-only at GET /api/cvs/:id/preview.
+- CV: POST /api/cvs accepts PDF/DOCX up to 5 MB; title is optional and defaults to the original filename stem. originalName is the persisted filename field. Download is GET /api/cvs/:id/download. Preview is PDF-only at GET /api/cvs/:id/preview. Existing legacy DOC records are retained and remain downloadable, but new DOC uploads and DOC previews are unsupported.
 - CV delete: any AIResult reference blocks delete with HTTP 409 and code CV_IN_USE. No force delete endpoint exists.
 - AI: Review CV maps to one CV_FEEDBACK result. Translate-and-Score is synchronous orchestration returning two result ids and per-step COMPLETED/FAILED status. The result detail endpoint remains the read-only polling contract.
-- Multiple Portfolio: /api/portfolios is now the list/create collection API. Nested Moment and Experience writes require portfolioId in the path. visibility uses PRIVATE/PUBLIC. Public reads use /api/public/portfolios/:slug.
-- Legacy: /api/portfolios/me, /api/portfolio, /api/portfolio-items and mobile photo routes remain for existing/default-portfolio clients and are deprecated for new multi-portfolio integration.
+- Single Portfolio: each Applicant owns at most one Portfolio. `/api/portfolio` is the canonical domain API; `GET /api/portfolio/me` returns `data.portfolio: null` until the first `PUT /api/portfolio/me` creates it.
+- Compatibility: canonical collection routes under `/api/portfolios` remain mounted, and `POST /api/portfolios` returns `409 PORTFOLIO_ALREADY_EXISTS` when the Applicant already owns a Portfolio. The legacy `/me`, PortfolioItem, and mobile-photo write routes are production-disabled by default; read routes remain available for compatibility.
 
 The complete request/response examples, error codes, migration requirement and frontend integration notes are in docs/applicant-features-frontend-handoff.local.md.
 

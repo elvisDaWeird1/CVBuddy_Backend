@@ -1,13 +1,17 @@
 import fs from "fs";
 import path from "path";
-import { v2 as cloudinary } from "cloudinary";
 
-import { getCloudinaryConfig } from "../../../config/cloudinary.config";
+import {
+  getCloudinaryConfig,
+  getCloudinarySignedDownloadUrl
+} from "../../../config/cloudinary.config";
 import ApiError from "../../../utils/apiError";
 import type { LocalCvFile } from "../clients/ai-service.client";
 
 type CvDocumentSource = {
   fileUrl?: unknown;
+  filePublicId?: unknown;
+  fileResourceType?: unknown;
   fileType?: unknown;
 };
 
@@ -143,32 +147,56 @@ const assertTrustedCloudinaryUrl = (value: string) => {
   return parsed;
 };
 
-const cloudinaryUrlFromPublicId = (publicId: string) => {
-  const config = getCloudinaryConfig();
-
-  if (!config.cloudName) {
-    throw new ApiError(409, "Cloudinary configuration is missing for this CV file");
-  }
+const getPublicIdFromCloudinaryUrl = (url: URL) => {
+  const segments = url.pathname.split("/").filter(Boolean);
+  const resourceType = segments[1];
+  const deliveryType = segments[2];
+  const publicIdSegments = segments.slice(3);
 
   if (
-    publicId.includes("..") ||
-    publicId.includes("\\") ||
-    publicId.startsWith("/") ||
-    publicId.includes("://")
+    !["image", "video", "raw"].includes(resourceType) ||
+    !["upload", "private", "authenticated"].includes(deliveryType)
   ) {
-    throw new ApiError(400, "Cloudinary public ID is invalid");
+    throw new ApiError(400, "CV storage URL has an unsupported Cloudinary delivery type");
   }
 
-  cloudinary.config({
-    cloud_name: config.cloudName,
-    secure: true
-  });
+  if (/^v\d+$/.test(publicIdSegments[0] || "")) {
+    publicIdSegments.shift();
+  }
 
-  return cloudinary.url(publicId, {
-    secure: true,
-    resource_type: "raw",
-    type: "upload"
-  });
+  const publicId = publicIdSegments.map((segment) => decodeURIComponent(segment)).join("/");
+  if (!publicId) {
+    throw new ApiError(400, "CV storage URL does not contain a Cloudinary public ID");
+  }
+
+  return {
+    publicId,
+    resourceType: resourceType as "image" | "video" | "raw",
+    deliveryType: deliveryType as "upload" | "private" | "authenticated"
+  };
+};
+
+const getSignedCloudinaryDownloadUrl = (
+  cv: CvDocumentSource,
+  trustedUrl?: URL,
+  fallbackPublicId?: string
+) => {
+  const urlMetadata = trustedUrl ? getPublicIdFromCloudinaryUrl(trustedUrl) : undefined;
+  const storedPublicId = typeof cv.filePublicId === "string"
+    ? cv.filePublicId.trim()
+    : "";
+  const storedResourceType = typeof cv.fileResourceType === "string"
+    ? cv.fileResourceType.trim().toLowerCase()
+    : "";
+  const resourceType = ["image", "video", "raw"].includes(storedResourceType)
+    ? storedResourceType as "image" | "video" | "raw"
+    : urlMetadata?.resourceType || "raw";
+
+  return new URL(getCloudinarySignedDownloadUrl({
+    publicId: storedPublicId || fallbackPublicId || urlMetadata?.publicId || "",
+    resourceType,
+    deliveryType: urlMetadata?.deliveryType || "upload"
+  }));
 };
 
 const resolveLocalPath = (fileUrl: string) => {
@@ -342,16 +370,20 @@ class CvFileSourceAdapter {
 
     if (/^https?:\/\//i.test(fileUrl)) {
       const trustedUrl = assertTrustedCloudinaryUrl(fileUrl);
-      return this.readRemoteFile(trustedUrl, cv.fileType);
+      return this.readRemoteFile(
+        getSignedCloudinaryDownloadUrl(cv, trustedUrl),
+        cv.fileType
+      );
     }
 
     if (fileUrl.startsWith("/") || fileUrl.startsWith("uploads/") || fileUrl.startsWith("uploads\\")) {
       return readLocalFile(resolveLocalPath(fileUrl), cv.fileType, this.maxBytes);
     }
 
-    const cloudinaryUrl = cloudinaryUrlFromPublicId(fileUrl);
-    const trustedUrl = assertTrustedCloudinaryUrl(cloudinaryUrl);
-    return this.readRemoteFile(trustedUrl, cv.fileType);
+    return this.readRemoteFile(
+      getSignedCloudinaryDownloadUrl(cv, undefined, fileUrl),
+      cv.fileType
+    );
   }
 }
 

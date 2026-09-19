@@ -28,6 +28,10 @@ const swaggerSpec = swaggerJSDoc({
         description: "Authentication and account APIs"
       },
       {
+        name: "Admin",
+        description: "Admin-only aggregate metrics APIs"
+      },
+      {
         name: "Applicant Profile",
         description: "Applicant profile APIs"
       },

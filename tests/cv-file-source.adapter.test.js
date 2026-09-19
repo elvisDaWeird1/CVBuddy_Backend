@@ -5,6 +5,30 @@ const test = require("node:test");
 
 const { CvFileSourceAdapter } = require("../src/modules/ai/adapters/cv-file-source.adapter");
 
+const withCloudinaryCredentials = async (callback) => {
+  const variableNames = [
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET"
+  ];
+  const originalValues = Object.fromEntries(
+    variableNames.map((name) => [name, process.env[name]])
+  );
+
+  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+  process.env.CLOUDINARY_API_KEY = "test-key";
+  process.env.CLOUDINARY_API_SECRET = "test-secret";
+
+  try {
+    return await callback();
+  } finally {
+    for (const name of variableNames) {
+      if (originalValues[name] === undefined) delete process.env[name];
+      else process.env[name] = originalValues[name];
+    }
+  }
+};
+
 const createLocalFile = (extension, bytes) => {
   const directory = path.join(process.cwd(), "uploads", "cvs");
   fs.mkdirSync(directory, { recursive: true });
@@ -92,13 +116,17 @@ test("source adapter enforces size and file signature", async () => {
   }
 });
 
-test("source adapter downloads a trusted Cloudinary URL", async () => {
-  const originalCloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
-  try {
+test("source adapter downloads a trusted Cloudinary URL through a signed backend URL", async () => {
+  await withCloudinaryCredentials(async () => {
     const adapter = new CvFileSourceAdapter({
       fetchImpl: async (input, init) => {
-        assert.equal(input, "https://res.cloudinary.com/test-cloud/raw/upload/cv.pdf");
+        const signedUrl = new URL(input);
+        assert.equal(signedUrl.hostname, "api.cloudinary.com");
+        assert.equal(signedUrl.pathname, "/v1_1/test-cloud/raw/download");
+        assert.equal(signedUrl.searchParams.get("public_id"), "cv.pdf");
+        assert.equal(signedUrl.searchParams.get("api_key"), "test-key");
+        assert.ok(signedUrl.searchParams.get("signature"));
+        assert.ok(signedUrl.searchParams.get("expires_at"));
         assert.equal(init.redirect, "error");
         return new Response(Buffer.from("%PDF-remote"), {
           status: 200,
@@ -114,10 +142,7 @@ test("source adapter downloads a trusted Cloudinary URL", async () => {
 
     assert.equal(result.mimeType, "application/pdf");
     assert.match(result.bytes.toString("ascii"), /^%PDF/);
-  } finally {
-    if (originalCloudName === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
-    else process.env.CLOUDINARY_CLOUD_NAME = originalCloudName;
-  }
+  });
 });
 
 test("source adapter rejects non-Cloudinary domains", async () => {
@@ -145,9 +170,7 @@ test("source adapter rejects non-Cloudinary domains", async () => {
 });
 
 test("source adapter maps remote download timeout", async () => {
-  const originalCloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
-  try {
+  await withCloudinaryCredentials(async () => {
     await assert.rejects(
       new CvFileSourceAdapter({
         timeoutMs: 5,
@@ -164,15 +187,10 @@ test("source adapter maps remote download timeout", async () => {
       }),
       (error) => error.statusCode === 504
     );
-  } finally {
-    if (originalCloudName === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
-    else process.env.CLOUDINARY_CLOUD_NAME = originalCloudName;
-  }
+  });
 });
 test("source adapter resolves a persisted Cloudinary public ID", async () => {
-  const originalCloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
-  try {
+  await withCloudinaryCredentials(async () => {
     const calls = [];
     const result = await new CvFileSourceAdapter({
       fetchImpl: async (input) => {
@@ -188,9 +206,8 @@ test("source adapter resolves a persisted Cloudinary public ID", async () => {
     });
 
     assert.equal(result.mimeType, "application/pdf");
-    assert.match(calls[0], /^https:\/\/res\.cloudinary\.com\/test-cloud\/raw\/upload\/cv\.pdf(?:\?.*)?$/);
-  } finally {
-    if (originalCloudName === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
-    else process.env.CLOUDINARY_CLOUD_NAME = originalCloudName;
-  }
+    const signedUrl = new URL(calls[0]);
+    assert.equal(signedUrl.hostname, "api.cloudinary.com");
+    assert.equal(signedUrl.searchParams.get("public_id"), "cv.pdf");
+  });
 });

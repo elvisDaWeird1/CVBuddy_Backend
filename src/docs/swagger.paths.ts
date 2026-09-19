@@ -3,6 +3,7 @@ import {
   applicantFeatureSwaggerPaths,
   applicantFeatureSwaggerSchemas
 } from "./applicantFeatures.swagger";
+import { adminSwaggerPaths, adminSwaggerSchemas } from "./admin.swagger";
 
 const errorResponse = {
   description: "Error response",
@@ -462,7 +463,7 @@ const swaggerPaths = {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "PDF, DOC, or DOCX CV file; maximum 5 MB"
+                  description: "PDF or DOCX CV file; maximum 5 MB"
                 }
               }
             }
@@ -543,7 +544,7 @@ const swaggerPaths = {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "PDF, DOC, or DOCX CV file; maximum 5 MB"
+                  description: "PDF or DOCX CV file; maximum 5 MB"
                 },
                 title: {
                   type: "string",
@@ -882,6 +883,8 @@ const swaggerPaths = {
     patch: {
       tags: ["Portfolio"],
       summary: "Update my portfolio",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use /api/portfolio/me instead.",
       security: bearerSecurity,
       requestBody: {
         required: true,
@@ -913,7 +916,8 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        410: errorResponse
       }
     }
   },
@@ -942,6 +946,8 @@ const swaggerPaths = {
     post: {
       tags: ["Portfolio"],
       summary: "Create portfolio item",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use /api/portfolio instead.",
       security: bearerSecurity,
       requestBody: {
         required: true,
@@ -978,7 +984,8 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        410: errorResponse
       }
     }
   },
@@ -1030,6 +1037,8 @@ const swaggerPaths = {
     patch: {
       tags: ["Portfolio"],
       summary: "Update my portfolio item",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use /api/portfolio instead.",
       security: bearerSecurity,
       parameters: [portfolioItemIdParameter],
       requestBody: {
@@ -1065,12 +1074,15 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        410: errorResponse
       }
     },
     delete: {
       tags: ["Portfolio"],
       summary: "Delete my portfolio item",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use /api/portfolio instead.",
       security: bearerSecurity,
       parameters: [portfolioItemIdParameter],
       responses: {
@@ -1091,7 +1103,8 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        410: errorResponse
       }
     }
   },
@@ -1099,6 +1112,8 @@ const swaggerPaths = {
     post: {
       tags: ["Mobile"],
       summary: "Upload photo from mobile app to portfolio",
+      deprecated: true,
+      description: "Legacy write. Disabled by default in production; use the canonical Portfolio API instead.",
       security: bearerSecurity,
       requestBody: {
         required: true,
@@ -1153,12 +1168,24 @@ const swaggerPaths = {
         },
         400: errorResponse,
         401: errorResponse,
-        403: errorResponse
+        403: errorResponse,
+        410: errorResponse
+      }
+    }
+  },
+  "/api/health/ready": {
+    get: {
+      tags: ["Health"],
+      summary: "Check backend readiness",
+      responses: {
+        200: { description: "Backend is ready" },
+        503: { description: "A required dependency or configuration is not ready" }
       }
     }
   },
   ...portfolioSwaggerPaths,
-  ...applicantFeatureSwaggerPaths
+  ...applicantFeatureSwaggerPaths,
+  ...adminSwaggerPaths
 };
 
 const swaggerComponents = {
@@ -2191,7 +2218,8 @@ const swaggerComponents = {
       ]
     },
     ...portfolioSwaggerSchemas,
-    ...applicantFeatureSwaggerSchemas
+    ...applicantFeatureSwaggerSchemas,
+    ...adminSwaggerSchemas
   }
 };
 

@@ -10,7 +10,7 @@ import {
 
 export interface IPortfolioExperience extends Document {
   applicantId: Types.ObjectId;
-  portfolioId?: Types.ObjectId;
+  portfolioId: Types.ObjectId;
   type: string;
   title: string;
   organization?: string;
@@ -39,7 +39,8 @@ const PortfolioExperienceSchema = new mongoose.Schema<IPortfolioExperience>(
     },
     portfolioId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Portfolio"
+      ref: "Portfolio",
+      required: true
     },
     type: {
       type: String,

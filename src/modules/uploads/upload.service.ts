@@ -1,8 +1,10 @@
 import path from "path";
-import { Readable } from "stream";
 import type { UploadApiOptions, UploadApiResponse } from "cloudinary";
 
-import cloudinary from "../../config/cloudinary.config";
+import {
+  deleteCloudinaryResource as deleteCloudinaryResourceFromProvider,
+  uploadBufferToCloudinary as uploadBufferToCloudinaryProvider
+} from "../../config/cloudinary.config";
 import { CV_STATUSES } from "../../constants/enums";
 import ApiError from "../../utils/apiError";
 import {
@@ -42,29 +44,6 @@ type UploadedFile = {
   originalName: string;
   mimeType: string;
   size: number;
-};
-
-const getMissingCloudinaryEnvVars = () => {
-  return [
-    "CLOUDINARY_CLOUD_NAME",
-    "CLOUDINARY_API_KEY",
-    "CLOUDINARY_API_SECRET"
-  ].filter((key) => !process.env[key]);
-};
-
-const assertCloudinaryConfigured = () => {
-  const missingVariables = getMissingCloudinaryEnvVars();
-
-  if (missingVariables.length > 0) {
-    throw new ApiError(
-      500,
-      "Cloudinary configuration is missing",
-      missingVariables.map((field) => ({
-        field,
-        message: `${field} is required`
-      }))
-    );
-  }
 };
 
 const assertFile = (file: Express.Multer.File | undefined, field = "file") => {
@@ -127,43 +106,22 @@ const uploadBufferToCloudinary = async (
   file: Express.Multer.File,
   options: UploadFileOptions
 ) => {
-  assertCloudinaryConfigured();
-
   const uploadOptions: UploadApiOptions = {
-    folder: options.folder,
     public_id: options.publicId,
-    resource_type: options.resourceType,
     overwrite: Boolean(options.overwrite),
     invalidate: Boolean(options.overwrite),
     filename_override: options.filenameOverride,
     display_name: options.displayName
   };
 
-  return new Promise<UploadedFile>((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      uploadOptions,
-      (error, result) => {
-        if (error || !result) {
-          console.error("Cloudinary upload failed", {
-            message: error instanceof Error ? error.message : "Provider rejected upload"
-          });
-          reject(
-            new ApiError(
-              502,
-              "File storage upload failed",
-              [{ code: "STORAGE_UPLOAD_FAILED", message: "Unable to store uploaded file" }],
-              "STORAGE_UPLOAD_FAILED"
-            )
-          );
-          return;
-        }
-
-        resolve(toUploadedFile(result, file));
-      }
-    );
-
-    Readable.from(file.buffer).pipe(uploadStream);
+  const result = await uploadBufferToCloudinaryProvider({
+    buffer: file.buffer,
+    folder: options.folder,
+    resourceType: options.resourceType,
+    options: uploadOptions
   });
+
+  return toUploadedFile(result, file);
 };
 
 const toAccountIdString = (accountId) => {
@@ -199,11 +157,9 @@ const deleteCloudinaryResource = async (
     return;
   }
 
-  assertCloudinaryConfigured();
-
-  await cloudinary.uploader.destroy(publicId, {
-    resource_type: resourceType as CloudinaryResourceType,
-    invalidate: true
+  await deleteCloudinaryResourceFromProvider({
+    publicId,
+    resourceType: resourceType as "image" | "video" | "raw"
   });
 };
 

@@ -29,7 +29,11 @@ import {
 
 const router = express.Router();
 
-router.get("/public/:slug", validateSlugParam, controller.getPublic);
+router.get(
+  "/public/:slug",
+  validate(validateSlugParam),
+  controller.getPublic
+);
 
 router.use(authMiddleware);
 router.use(roleMiddleware(ACCOUNT_ROLES.APPLICANT));

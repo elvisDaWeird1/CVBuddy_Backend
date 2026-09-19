@@ -3,6 +3,7 @@ import express from "express";
 import { ACCOUNT_ROLES } from "../../constants/enums";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { roleMiddleware } from "../../middlewares/role.middleware";
+import { blockLegacyPortfolioWrite } from "../../middlewares/legacyPortfolioWrite.middleware";
 import { validate } from "../../middlewares/validate.middleware";
 import * as portfolioController from "./portfolio.controller";
 import * as collectionController from "./portfolioCollection.controller";
@@ -46,6 +47,7 @@ portfolioRouter.get("/me", portfolioController.getMyPortfolio);
 
 portfolioRouter.patch(
   "/me",
+  blockLegacyPortfolioWrite,
   validate(updatePortfolioValidation),
   portfolioController.updateMyPortfolio
 );
@@ -101,6 +103,7 @@ portfolioItemRouter.use(roleMiddleware(ACCOUNT_ROLES.APPLICANT));
 
 portfolioItemRouter.post(
   "/",
+  blockLegacyPortfolioWrite,
   validate(createPortfolioItemValidation),
   portfolioController.createPortfolioItem
 );
@@ -115,12 +118,14 @@ portfolioItemRouter.get(
 
 portfolioItemRouter.patch(
   "/:id",
+  blockLegacyPortfolioWrite,
   validate(updatePortfolioItemValidation),
   portfolioController.updatePortfolioItem
 );
 
 portfolioItemRouter.delete(
   "/:id",
+  blockLegacyPortfolioWrite,
   validate(portfolioItemIdValidation),
   portfolioController.deletePortfolioItem
 );

@@ -14,10 +14,15 @@ import {
 } from "./portfolioAsset.service";
 import PortfolioExperience from "./portfolioExperience.model";
 import PortfolioMoment from "./portfolioMoment.model";
+import { ensureDefaultPortfolio } from "./portfolioCollection.service";
 
 const toId = (value) => value?.toString();
 
-const serializeMoment = (moment, assets: unknown[] = [], includePrivateFields = true) => {
+const serializeMoment = (
+  moment,
+  assets: Array<{ secureUrl?: string }> = [],
+  includePrivateFields = true
+) => {
   if (!moment) {
     return null;
   }
@@ -67,7 +72,12 @@ const normalizePayload = (payload) => {
 };
 
 const getOwnedMoment = async (applicantId, momentId) => {
-  const moment = await PortfolioMoment.findOne({ _id: momentId, applicantId });
+  const portfolio = await ensureDefaultPortfolio(applicantId);
+  const moment = await PortfolioMoment.findOne({
+    _id: momentId,
+    applicantId,
+    portfolioId: portfolio._id
+  });
 
   if (!moment) {
     throw new ApiError(404, "Moment not found");
@@ -88,12 +98,16 @@ const getAssets = async (assetIds, applicantId?: string) => {
   return assetIds.map((assetId) => assetsById.get(toId(assetId))).filter(Boolean);
 };
 
-const assertExperienceOwnership = async (applicantId, experienceId) => {
+const assertExperienceOwnership = async (applicantId, portfolioId, experienceId) => {
   if (!experienceId) {
     return;
   }
 
-  const experience = await PortfolioExperience.findOne({ _id: experienceId, applicantId });
+  const experience = await PortfolioExperience.findOne({
+    _id: experienceId,
+    applicantId,
+    portfolioId
+  });
   if (!experience) {
     throw new ApiError(400, "Experience is not owned by the applicant");
   }
@@ -106,7 +120,8 @@ const createMoment = async ({ applicantId, files, payload }) => {
     ]);
   }
 
-  await assertExperienceOwnership(applicantId, payload.experienceId);
+  const portfolio = await ensureDefaultPortfolio(applicantId);
+  await assertExperienceOwnership(applicantId, portfolio._id, payload.experienceId);
   const momentId = new mongoose.Types.ObjectId();
   const assets = [];
 
@@ -115,6 +130,7 @@ const createMoment = async ({ applicantId, files, payload }) => {
       assets.push(
         await createPortfolioAsset({
           applicantId: toId(applicantId),
+          portfolioId: toId(portfolio._id),
           file,
           usage: PORTFOLIO_ASSET_USAGES.MOMENT_MEDIA,
           resourceId: toId(momentId)
@@ -126,6 +142,7 @@ const createMoment = async ({ applicantId, files, payload }) => {
       _id: momentId,
       ...normalizePayload(payload),
       applicantId,
+      portfolioId: portfolio._id,
       mediaAssetIds: assets.map((asset) => asset._id),
       status: payload.status || PORTFOLIO_MOMENT_STATUSES.DRAFT,
       visibility: payload.visibility || "private"
@@ -149,9 +166,10 @@ const createMoment = async ({ applicantId, files, payload }) => {
 };
 
 const listMoments = async (applicantId, query: Record<string, unknown> = {}) => {
+  const portfolio = await ensureDefaultPortfolio(applicantId);
   const page = Number(query.page || 1);
   const limit = Number(query.limit || 20);
-  const filter: Record<string, unknown> = { applicantId };
+  const filter: Record<string, unknown> = { applicantId, portfolioId: portfolio._id };
 
   if (query.experienceId) {
     filter.experienceId = query.experienceId;
@@ -191,7 +209,8 @@ const getMoment = async (applicantId, momentId) => {
 const updateMoment = async (applicantId, momentId, payload) => {
   const moment = await getOwnedMoment(applicantId, momentId);
   if (payload.experienceId !== undefined) {
-    await assertExperienceOwnership(applicantId, payload.experienceId);
+    const portfolio = await ensureDefaultPortfolio(applicantId);
+    await assertExperienceOwnership(applicantId, portfolio._id, payload.experienceId);
   }
   Object.assign(moment, normalizePayload(payload));
   await moment.save();
@@ -215,7 +234,8 @@ const deleteMoment = async (applicantId, momentId) => {
 
 const assignMomentToExperience = async (applicantId, momentId, experienceId) => {
   const moment = await getOwnedMoment(applicantId, momentId);
-  await assertExperienceOwnership(applicantId, experienceId);
+  const portfolio = await ensureDefaultPortfolio(applicantId);
+  await assertExperienceOwnership(applicantId, portfolio._id, experienceId);
   moment.experienceId = experienceId;
   await moment.save();
   return serializeMoment(moment, await getAssets(moment.mediaAssetIds || [], applicantId));

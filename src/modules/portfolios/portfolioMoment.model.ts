@@ -8,7 +8,7 @@ import {
 
 export interface IPortfolioMoment extends Document {
   applicantId: Types.ObjectId;
-  portfolioId?: Types.ObjectId;
+  portfolioId: Types.ObjectId;
   experienceId?: Types.ObjectId | null;
   caption?: string;
   capturedAt: Date;
@@ -30,7 +30,8 @@ const PortfolioMomentSchema = new mongoose.Schema<IPortfolioMoment>(
     },
     portfolioId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Portfolio"
+      ref: "Portfolio",
+      required: true
     },
     experienceId: {
       type: mongoose.Schema.Types.ObjectId,

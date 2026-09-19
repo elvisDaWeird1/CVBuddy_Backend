@@ -2,7 +2,10 @@ import ApiError from "../../utils/apiError";
 import { Types } from "mongoose";
 import Portfolio from "./portfolio.model";
 import PortfolioExperience from "./portfolioExperience.model";
-import { ensureDefaultPortfolio } from "./portfolioCollection.service";
+import {
+  ensureDefaultPortfolio,
+  findDefaultPortfolio
+} from "./portfolioCollection.service";
 
 const toId = (value) => value?.toString();
 
@@ -36,11 +39,15 @@ const serializePortfolio = (portfolio, includePrivateFields = true) => {
 };
 
 const getMyPortfolioDocument = async (applicantId) => {
-  return ensureDefaultPortfolio(applicantId);
+  const portfolio = await findDefaultPortfolio(applicantId);
+  if (!portfolio) {
+    throw new ApiError(404, "Portfolio not found", [], "PORTFOLIO_NOT_FOUND");
+  }
+  return portfolio;
 };
 
 const getMyPortfolio = async (applicantId) => {
-  return serializePortfolio(await getMyPortfolioDocument(applicantId));
+  return serializePortfolio(await findDefaultPortfolio(applicantId));
 };
 
 const updateMyPortfolio = async (applicantId, payload) => {
@@ -81,7 +88,7 @@ const updateMyPortfolio = async (applicantId, payload) => {
 };
 
 const setPortfolioPublic = async (applicantId, isPublic: boolean) => {
-  const existing = await ensureDefaultPortfolio(applicantId);
+  const existing = await getMyPortfolioDocument(applicantId);
   const portfolio = await Portfolio.findOneAndUpdate(
     { _id: existing._id, applicantId },
     { $set: {
