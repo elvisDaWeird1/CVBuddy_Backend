@@ -81,7 +81,8 @@ const readAdminPassword = async () => {
 
 const run = async () => {
   if (args.includes("--help")) {
-    console.log("Usage: npm run provision:admin -- --email <address> [--promote-existing]");
+    console.log("Usage: npm run provision:admin -- [--email <address>] [--promote-existing]");
+    console.log("Set ADMIN_BOOTSTRAP_EMAIL in .env to omit --email.");
     return;
   }
 
@@ -89,9 +90,9 @@ const run = async () => {
     throw new Error("Do not pass passwords through command-line arguments. Use the hidden prompt or stdin.");
   }
 
-  const email = getArgumentValue("--email");
+  const email = getArgumentValue("--email") || process.env.ADMIN_BOOTSTRAP_EMAIL;
   if (!email) {
-    throw new Error("Usage: npm run provision:admin -- --email <address> [--promote-existing]");
+    throw new Error("Set ADMIN_BOOTSTRAP_EMAIL in .env or pass --email <address>.");
   }
 
   await connectDB();
