@@ -10,6 +10,8 @@ Run the idempotent command with the admin email as a non-secret argument:
 npm run provision:admin -- --email admin@example.com
 ```
 
+Alternatively, set `ADMIN_BOOTSTRAP_EMAIL` in the local `.env` and run `npm run provision:admin` without `--email`. The value in `.env.example` is only a placeholder and is never an administrator until this command completes successfully.
+
 Enter the password at the hidden prompt. The script rejects `--password` so the password is not placed in shell history or the process argument list. It writes only the action, account ID, role, status, and completion timestamp to output.
 
 For non-interactive deployment, provide the password on standard input directly from the platform secret manager. Do not use a password literal with `echo`, command arguments, committed files, or deployment logs.
