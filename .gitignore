@@ -1,9 +1,22 @@
 node_modules/
+dist/
 .env
 .env.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .codex-dev-server*.log
+.codex-ts-dev*.log
 .DS_Store
-uploads/
+/uploads/
+
+# AI agent / local workflow files
+.agents/
+.codex/
+.claude/
+.cursor/
+.trellis/workspace/
+.trellis/tasks/_drafts/
+.trellis/tasks/**/scratch.md
+.trellis/tasks/**/notes.local.md
+*.local.md

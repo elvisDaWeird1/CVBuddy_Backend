@@ -1,0 +1,160 @@
+# API Contract
+
+This document is the source of truth for intended public CVBuddy backend API behavior and response contracts. `src/docs/swagger.paths.ts` is the implementation source used to generate Swagger/OpenAPI documentation and should stay aligned with this file.
+
+If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the route and controller code, then reconcile the mismatch according to the current task or report it clearly.
+
+## General
+
+- All paths below are full API paths with the `/api` prefix.
+- Swagger UI: `/api/docs`
+- OpenAPI JSON: `/api/docs.json`
+- Protected routes use `Authorization: Bearer <token>`.
+- Every response has an `X-Request-ID` header and envelope `requestId`; clients may
+  send a valid `X-Request-ID` to correlate a support report.
+- Success response shape: `{ success: true, message, data?, requestId }`.
+- Error response shape: `{ success: false, message, errors, code, requestId }`.
+- `code` is a stable machine-readable error category. Unexpected failures always
+  return `INTERNAL_ERROR` without exposing internal exception text.
+
+## Current Routes
+
+- `GET /api/health` (liveness; does not call external dependencies)
+- `GET /api/health/ready` (readiness; returns 503 until Mongo, Cloudinary configuration, and enabled-AI URL checks pass)
+- `POST /api/auth/register/applicant`
+- `POST /api/auth/register/company`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `PATCH /api/auth/change-password`
+- `GET /api/admin/metrics/overview`
+- `GET /api/applicant-profile/me`
+- `PATCH /api/applicant-profile/me`
+- `PATCH /api/applicant-profile/me/avatar`
+- `POST /api/uploads/avatar`
+- `POST /api/uploads/portfolio-photo`
+- `POST /api/uploads/cv`
+- `GET /api/uploads/cv/:id/download`
+- `POST /api/cvs`
+- `GET /api/cvs`
+- `GET /api/cvs/:id`
+- `DELETE /api/cvs/:id`
+- `GET /api/cvs/:id/download`
+- `GET /api/cvs/:id/preview`
+- `POST /api/ai/cvs/:cvId/feedback`
+- `POST /api/ai/cvs/:cvId/score`
+- `POST /api/ai/cvs/:cvId/translate-to-english`
+- `POST /api/ai/cvs/:cvId/review`
+- `POST /api/ai/cvs/:cvId/translate-and-score`
+- `GET /api/ai/results`
+- `GET /api/ai/results/:id`
+- `POST /api/portfolios`
+- `GET /api/portfolios`
+- `GET /api/portfolios/:portfolioId`
+- `PATCH /api/portfolios/:portfolioId`
+- `DELETE /api/portfolios/:portfolioId`
+- `PATCH /api/portfolios/:portfolioId/visibility`
+- `GET|POST /api/portfolios/:portfolioId/moments`
+- `GET|POST /api/portfolios/:portfolioId/experiences`
+- `GET /api/public/portfolios/:slug`
+- `GET /api/portfolios/me`
+- `PATCH /api/portfolios/me`
+- `GET /api/portfolios/public/:portfolioId`
+- `POST /api/portfolio-items`
+- `GET /api/portfolio-items/me`
+- `GET /api/portfolio-items/:id`
+- `PATCH /api/portfolio-items/:id`
+- `DELETE /api/portfolio-items/:id`
+- `POST /api/mobile/portfolio/photos`
+
+## Admin Metrics API
+
+`GET /api/admin/metrics/overview` requires a valid `ADMIN` bearer token. Anonymous requests return `401`; authenticated Applicant or Company accounts return `403`.
+
+The response `data` contains aggregate values only:
+
+```json
+{
+  "totalUsers": 125,
+  "applicants": 100,
+  "companies": 25,
+  "activeUsers": 118,
+  "newUsersLast7Days": 14,
+  "generatedAt": "2026-09-11T12:00:00.000Z"
+}
+```
+
+- `totalUsers` is `APPLICANT + COMPANY`; `ADMIN` accounts are excluded from every metric.
+- `activeUsers` counts active Applicant and Company accounts.
+- `newUsersLast7Days` counts Applicant and Company accounts created during the preceding 7 x 24 hours, using server UTC time.
+- The endpoint never returns account identifiers, email addresses, names, CV data, or other user-level records.
+
+## Portfolio Domain APIs
+
+The current portfolio domain uses `/api/portfolio`. All private endpoints require an Applicant JWT; ownership is derived from the authenticated account and clients must not send `applicantId`.
+
+### Portfolio profile
+
+- `GET /api/portfolio/me`
+- `PUT /api/portfolio/me`
+- `PATCH /api/portfolio/me/publish`
+- `PATCH /api/portfolio/me/unpublish`
+- `PUT /api/portfolio/me/featured-experiences`
+- `GET /api/portfolio/public/:slug` (public, only when `isPublic` is true)
+
+### Experiences
+
+- `POST /api/portfolio/experiences`
+- `GET /api/portfolio/experiences?page=1&limit=20&status=draft&type=project&search=node`
+- `GET /api/portfolio/experiences/:id`
+- `PATCH /api/portfolio/experiences/:id`
+- `DELETE /api/portfolio/experiences/:id`
+- `PATCH /api/portfolio/experiences/:id/publish`
+- `PATCH /api/portfolio/experiences/:id/archive`
+- `PATCH /api/portfolio/experiences/:id/cover` (JSON `assetId` or multipart `cover`; JPG/JPEG/PNG/WEBP, maximum 5 MB)
+- `POST /api/portfolio/experiences/:id/cover` (compatibility alias for cover update)
+
+### Moments
+
+- `POST /api/portfolio/moments` (multipart `media`, 1–5 JPG/JPEG/PNG/WEBP/MP4 files, maximum 5 MB each; `capturedAt` is required)
+- `GET /api/portfolio/moments`
+- `GET /api/portfolio/moments/:id`
+- `PATCH /api/portfolio/moments/:id`
+- `DELETE /api/portfolio/moments/:id`
+- `PATCH /api/portfolio/moments/:id/assign-experience`
+- `PATCH /api/portfolio/moments/:id/unassign-experience`
+
+### Evidence
+
+- `POST /api/portfolio/experiences/:experienceId/evidence` (JSON URL or multipart `file`; JPG/JPEG/PNG/WEBP/MP4/PDF/DOC/DOCX, maximum 5 MB)
+- `GET /api/portfolio/experiences/:experienceId/evidence`
+- `PATCH /api/portfolio/evidence/:id`
+- `DELETE /api/portfolio/evidence/:id`
+
+The legacy `/api/portfolios/me`, `/api/portfolio-items`, and `/api/mobile/portfolio/photos` routes remain mounted for existing clients. New clients should use the domain routes above. Legacy writes are disabled by default when `NODE_ENV=production` and return `410 LEGACY_PORTFOLIO_WRITES_DISABLED`; a time-bound rollback can explicitly set `ENABLE_LEGACY_PORTFOLIO_WRITES=true`.
+
+Do not change these contracts without an explicit API task.
+
+## Applicant feature contract decisions (2026-07-17)
+
+- Avatar: PATCH /api/applicant-profile/me/avatar, multipart field avatar, JPEG/PNG/WebP, maximum 5 MB. PATCH profile no longer accepts avatarUrl. GET /api/auth/me includes profile.avatarUrl.
+- CV: POST /api/cvs accepts PDF/DOCX up to 5 MB; title is optional and defaults to the original filename stem. originalName is the persisted filename field. Download is GET /api/cvs/:id/download. Preview is PDF-only at GET /api/cvs/:id/preview. Existing legacy DOC records are retained and remain downloadable, but new DOC uploads and DOC previews are unsupported.
+- CV delete: any AIResult reference blocks delete with HTTP 409 and code CV_IN_USE. No force delete endpoint exists.
+- AI: Review CV maps to one CV_FEEDBACK result. Translate-and-Score is synchronous orchestration returning two result ids and per-step COMPLETED/FAILED status. The result detail endpoint remains the read-only polling contract.
+- Single Portfolio: each Applicant owns at most one Portfolio. `/api/portfolio` is the canonical domain API; `GET /api/portfolio/me` returns `data.portfolio: null` until the first `PUT /api/portfolio/me` creates it.
+- Compatibility: canonical collection routes under `/api/portfolios` remain mounted, and `POST /api/portfolios` returns `409 PORTFOLIO_ALREADY_EXISTS` when the Applicant already owns a Portfolio. The legacy `/me`, PortfolioItem, and mobile-photo write routes are production-disabled by default; read routes remain available for compatibility.
+
+The complete request/response examples, error codes, migration requirement and frontend integration notes are in docs/applicant-features-frontend-handoff.local.md.
+
+## AI service integration
+
+- The existing `/api/ai/cvs/:cvId/feedback`, `/score`, and `/translate-to-english` routes keep their public paths and response wrapper.
+- Their optional request body may include `industrySlug`, `verticalSlug`, `companyModel`, `language`, `tier`, `jdExtract`, `llmModel`, `extractionMode`, and `strictIndustryMatch`; legacy `targetRole` and `cvText` remain accepted.
+- The Node backend calls the independent FastAPI service configured by `AI_SERVICE_URL`; clients never call FastAPI directly.
+- See `docs/ai-service-integration.md` for the internal request mapping and error behavior.
+
+### AI result representation
+
+- Action and detail AI responses include data.aiResult.result as the parsed structured result when resultText contains JSON.
+- data.aiResult.resultText remains available for backward compatibility.
+- Legacy non-JSON resultText is returned as a string in data.aiResult.result; list responses continue to omit detailed result fields.

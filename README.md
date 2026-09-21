@@ -2,17 +2,17 @@
 
 ## What is CVBuddy?
 
-CVBuddy is a career support platform for students and early-career users.
+CVBuddy is a career support platform for applicants and early-career users.
 
 The MVP backend supports:
 
-- Account registration and login for Student, Company, and Admin.
-- Student profile and company profile.
+- Account registration and login for Applicant, Company, and Admin.
+- Applicant profile and company profile.
 - CV upload and management.
 - AI CV feedback, CV scoring, CV translation, and basic job recommendation result storage.
 - Portfolio creation and mobile photo upload to portfolio.
 - Job posting by companies.
-- Job application by students.
+- Job application by applicants.
 - Notifications and feedback form.
 
 ## Backend Stack
@@ -22,6 +22,7 @@ Use the existing project stack if already configured.
 Default backend stack:
 
 - Node.js
+- TypeScript
 - Express.js
 - MongoDB
 - Mongoose
@@ -34,23 +35,14 @@ Default backend stack:
 
 This project is currently coding the **MVP only**.
 
-The source of truth for MVP database design is:
+Current backend references:
 
-```txt
-MVP_Database.txt
-```
+- `docs/database.md` is the human-readable database reference.
+- Mongoose model/schema files are the implementation source for current database behavior.
+- `docs/api-contract.md` is the public API contract reference.
+- `BACKEND_MVP_PLAN.md` is a planning reference, not mandatory reading for every small task.
 
-Do not add models, fields, tables, APIs, or features from `Full_Database.txt` unless the user explicitly approves it.
-
-## Main Documents to Read
-
-Read these files before coding:
-
-1. `README.md`
-2. `BACKEND_MVP_PLAN.md`
-3. `MVP_Database.txt`
-4. `CVBuddy_RDS.docx`
-5. `Full_Database.txt`
+If older planning files such as `MVP_Database.txt`, `CVBuddy_RDS.docx`, or `Full_Database.txt` are added later, use them only for scope or schema decisions and reconcile them with the current code and docs.
 
 ## How to Run
 
@@ -72,10 +64,10 @@ On Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Set at least `MONGODB_URI` in `.env` before starting the server:
+Set at least `MONGO_URI` in `.env` before starting the server:
 
 ```txt
-MONGODB_URI=mongodb://127.0.0.1:27017/cvbuddy
+MONGO_URI=mongodb://127.0.0.1:27017/cvbuddy
 ```
 
 Run in development mode:
@@ -84,7 +76,13 @@ Run in development mode:
 npm run dev
 ```
 
-Or run normally:
+Build TypeScript:
+
+```bash
+npm run build
+```
+
+Start production from `dist`:
 
 ```bash
 npm start
@@ -111,21 +109,350 @@ Expected response:
 }
 ```
 
+## API Documentation
+
+Run the backend:
+
+```bash
+npm run dev
+```
+
+Open Swagger UI:
+
+```txt
+http://localhost:5000/api/docs
+```
+
+Open OpenAPI JSON:
+
+```txt
+http://localhost:5000/api/docs.json
+```
+
+Test protected APIs:
+
+1. Call `POST /api/auth/login`.
+2. Copy token from response.
+3. Click Authorize in Swagger UI.
+4. Paste the JWT token.
+5. Test protected APIs.
+
+## Phase 2 Authentication APIs
+
+Base URL:
+
+```txt
+http://localhost:5000/api
+```
+
+Register an applicant:
+
+```txt
+POST /auth/register/applicant
+```
+
+```json
+{
+  "email": "applicant@example.com",
+  "password": "Applicant@123",
+  "fullName": "Nguyen Van A"
+}
+```
+
+Register a company:
+
+```txt
+POST /auth/register/company
+```
+
+```json
+{
+  "email": "company@example.com",
+  "password": "Company@123",
+  "companyName": "ABC Company"
+}
+```
+
+Login:
+
+```txt
+POST /auth/login
+```
+
+```json
+{
+  "email": "applicant@example.com",
+  "password": "Applicant@123"
+}
+```
+
+Protected APIs require:
+
+```txt
+Authorization: Bearer <token>
+```
+
+Current account:
+
+```txt
+GET /auth/me
+```
+
+Change password:
+
+```txt
+PATCH /auth/change-password
+```
+
+```json
+{
+  "currentPassword": "Applicant@123",
+  "newPassword": "NewPassword@123"
+}
+```
+
+Logout:
+
+```txt
+POST /auth/logout
+```
+
+## Phase 3 Applicant Profile APIs
+
+Both endpoints require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+```
+
+Get my applicant profile:
+
+```txt
+GET /applicant-profile/me
+```
+
+Update my applicant profile:
+
+```txt
+PATCH /applicant-profile/me
+```
+
+```json
+{
+  "phone": "0900000000",
+  "university": "FPT University",
+  "major": "Software Engineering",
+  "location": "Can Tho",
+  "headline": "Junior Backend Developer",
+  "summary": "I am looking for internship opportunities.",
+  "careerGoal": "Become a backend developer.",
+  "avatarUrl": "https://example.com/avatar.jpg"
+}
+```
+
+## Phase 4 CV Management APIs
+
+All CV endpoints require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+```
+
+Upload a CV:
+
+```txt
+POST /cvs
+Content-Type: multipart/form-data
+```
+
+Form-data:
+
+```txt
+file: PDF or DOCX file
+title: optional; defaults to the original filename without extension
+language: VI or EN (optional, default VI)
+```
+
+Uploaded CV files are stored in Cloudinary when Cloudinary environment variables
+are configured. The maximum CV upload size is 5 MB. Use
+`GET /api/cvs/:id/download` to download a saved CV
+with its original filename and extension. Existing legacy DOC records remain
+available for download, but new DOC uploads and inline DOC previews are unsupported.
+
+Get my CV list:
+
+```txt
+GET /cvs
+```
+
+Get CV detail:
+
+```txt
+GET /cvs/:id
+```
+
+Soft delete CV:
+
+```txt
+DELETE /cvs/:id
+```
+
+## Phase 5 AI CV APIs
+
+AI endpoints require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+```
+
+If `AI_PROVIDER=mock` or no `AI_API_KEY` is configured, the backend returns mock AI responses.
+
+Generate CV feedback:
+
+```txt
+POST /ai/cvs/:cvId/feedback
+```
+
+Generate CV score:
+
+```txt
+POST /ai/cvs/:cvId/score
+```
+
+Translate CV to English:
+
+```txt
+POST /ai/cvs/:cvId/translate-to-english
+```
+
+Optional body when the uploaded CV has no extracted text:
+
+```json
+{
+  "targetRole": "Backend Developer",
+  "cvText": "Paste CV text here if extractedText is empty."
+}
+```
+
+Get my AI result history:
+
+```txt
+GET /ai/results
+```
+
+Get AI result detail:
+
+```txt
+GET /ai/results/:id
+```
+
+## Phase 6 Portfolio & Mobile Photo APIs
+
+Portfolio upload endpoints store uploaded photos in Cloudinary when Cloudinary
+environment variables are configured.
+
+Applicant portfolio APIs require an applicant JWT:
+
+```txt
+Authorization: Bearer <token>
+```
+
+Create my portfolio:
+
+```txt
+POST /portfolios
+```
+
+Get or update my portfolio:
+
+```txt
+GET /portfolios/me
+PATCH /portfolios/me
+```
+
+View a public portfolio:
+
+```txt
+GET /portfolios/public/:portfolioId
+```
+
+Create and manage my portfolio items:
+
+```txt
+POST /portfolio-items
+GET /portfolio-items/me
+GET /portfolio-items/:id
+PATCH /portfolio-items/:id
+DELETE /portfolio-items/:id
+```
+
+Upload a portfolio photo from mobile:
+
+```txt
+POST /mobile/portfolio/photos
+Content-Type: multipart/form-data
+```
+
+Form-data:
+
+```txt
+image: JPG, JPEG, PNG, or WEBP file
+title: Career Workshop Photo
+description: Photo from today's workshop
+eventName: Career Workshop 2026
+eventRole: Participant
+eventDate: 2026-06-20
+location: Can Tho
+visibility: PUBLIC
+```
+
+## Portfolio Domain APIs
+
+The current Portfolio domain is available under `/api/portfolio` and uses Applicant JWT ownership. It models the flow `Moment -> Experience -> Portfolio`; clients never send `applicantId`.
+
+Profile routes:
+
+```txt
+GET   /api/portfolio/me
+PUT   /api/portfolio/me
+PATCH /api/portfolio/me/publish
+PATCH /api/portfolio/me/unpublish
+PUT   /api/portfolio/me/featured-experiences
+GET   /api/portfolio/public/:slug
+```
+
+Experience, Moment, and Evidence routes are documented in `docs/api-contract.md` and `docs/portfolio-backend-handoff.local.md`. Moment creation uses `multipart/form-data` with one to five `media` files and a required `capturedAt` field. Cloudinary credentials are required for the new media/evidence/cover upload flow.
+
+## Admin Metrics
+
+Admin registration is not public. Use the protected operational command documented in `docs/admin-operations.md` to create or explicitly promote an Admin account without placing its password in command history.
+
+An authenticated Admin can read aggregate user counts from:
+
+```txt
+GET /api/admin/metrics/overview
+```
+
+Applicant and Company accounts receive `403`; anonymous requests receive `401`. The response excludes Admin accounts and contains no user-level PII.
+
 ## Environment Variables
 
 Example `.env`:
 
 ```txt
 PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/cvbuddy
+MONGO_URI=mongodb://127.0.0.1:27017/cvbuddy
 JWT_SECRET=change_me
 JWT_EXPIRES_IN=7d
 BCRYPT_SALT_ROUNDS=10
 
-STORAGE_DRIVER=local
+STORAGE_DRIVER=cloudinary
 UPLOAD_DIR=uploads
-MAX_CV_FILE_SIZE_MB=10
+MAX_CV_FILE_SIZE_MB=5
 MAX_IMAGE_FILE_SIZE_MB=5
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 
 AI_PROVIDER=mock
 AI_API_KEY=
@@ -134,21 +461,15 @@ AI_MODEL=
 
 Do not commit real `.env` values.
 
-## Coding Rules for Codex
+## Backend Agent Guidance
 
-- Do not expand outside MVP scope.
-- Do not change the database design without approval.
-- Do not add future/full-database models unless requested.
-- Keep model fields aligned with `MVP_Database.txt`.
-- Use modular structure: model, route, controller, service, validation, middleware.
-- Use JWT for protected APIs.
-- Use role-based access for Student, Company, and Admin APIs.
-- Treat AI output as suggestions only.
-- Keep API response format consistent.
-- Update documentation after coding.
+Detailed Codex guidance lives in `AGENTS.md`. Keep this README focused on human setup and API usage.
+
+For backend changes, preserve existing MVP contracts unless a task explicitly changes them: API paths, response format, schema fields, enum values, JWT behavior, upload behavior, and environment variable names.
 
 ## MVP Reminder
 
 Focus on building a clean, working backend MVP first.
 
 Future features such as OAuth, password reset, job approval, skill tables, CV versions, advanced moderation, audit logs, and AI matched candidates are not part of the current MVP unless explicitly approved.
+
