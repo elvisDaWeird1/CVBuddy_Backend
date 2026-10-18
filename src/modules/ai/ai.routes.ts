@@ -7,6 +7,7 @@ import { validate } from "../../middlewares/validate.middleware";
 import { aiRateLimit } from "../../middlewares/rateLimit.middleware";
 import * as aiController from "./ai.controller";
 import {
+  aiIdempotencyKeyValidation,
   aiResultIdValidation,
   aiResultsQueryValidation,
   cvAiRequestValidation,
@@ -21,30 +22,35 @@ router.use("/cvs/:cvId", aiRateLimit);
 
 router.post(
   "/cvs/:cvId/feedback",
+  validate(aiIdempotencyKeyValidation),
   validate(cvAiRequestValidation),
   aiController.generateFeedback
 );
 
 router.post(
   "/cvs/:cvId/review",
+  validate(aiIdempotencyKeyValidation),
   validate(careerTargetAiRequestValidation),
   aiController.reviewCv
 );
 
 router.post(
   "/cvs/:cvId/score",
+  validate(aiIdempotencyKeyValidation),
   validate(cvAiRequestValidation),
   aiController.generateScore
 );
 
 router.post(
   "/cvs/:cvId/translate-to-english",
+  validate(aiIdempotencyKeyValidation),
   validate(cvAiRequestValidation),
   aiController.translateToEnglish
 );
 
 router.post(
   "/cvs/:cvId/translate-and-score",
+  validate(aiIdempotencyKeyValidation),
   validate(careerTargetAiRequestValidation),
   aiController.translateAndScore
 );

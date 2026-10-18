@@ -7,6 +7,10 @@ const {
   isAiServiceError
 } = require("../src/modules/ai/clients/ai-service.client");
 const aiService = require("../src/modules/ai/ai.service");
+const {
+  cvAiRequestValidation,
+  careerTargetAiRequestValidation
+} = require("../src/modules/ai/ai.validation");
 const ApplicantProfile = require("../src/modules/applicantProfiles/applicantProfile.model").default;
 const CVDocument = require("../src/modules/cvs/cvDocument.model").default;
 const AIResult = require("../src/modules/ai/aiResult.model").default;
@@ -23,7 +27,7 @@ const analyzeResponse = {
   company_model_feedback: "Feedback",
   confidence: 0.8,
   disclaimer: "AI-assisted feedback only",
-  meta: { source: "mock", model: "test" }
+  meta: { source: "groq", provider: "groq", model: "test" }
 };
 
 const analyzeRequest = {
@@ -43,6 +47,87 @@ const analyzeRequest = {
   strict_industry_match: false
 };
 
+test("public AI requests reject client-controlled tier and plan fields", () => {
+  const cvId = "507f1f77bcf86cd799439011";
+  const forgedFields = [
+    ["tier", "subscription"],
+    ["subscription", true],
+    ["plan", "PRO"],
+    ["planCode", "PRO_30D"],
+    ["credits", 999],
+    ["creditCost", 0]
+  ];
+
+  for (const [field, value] of forgedFields) {
+    const errors = cvAiRequestValidation({
+      params: { cvId },
+      body: { [field]: value }
+    });
+
+    assert.ok(errors.some((error) =>
+      error.field === field && error.message === `${field} is controlled by the server`
+    ));
+  }
+
+  const validCareerRequest = careerTargetAiRequestValidation({
+    params: { cvId },
+    body: { industrySlug: "ai_software", targetRole: "Backend Engineer" }
+  });
+  assert.deepEqual(validCareerRequest, []);
+});
+
+const runTranslationFailureCase = async ({ fetchImpl, timeoutMs, expectedStatus, expectedCode }) => {
+  const originalEnabled = process.env.AI_SERVICE_ENABLED;
+  const originalTimeout = process.env.AI_SERVICE_TIMEOUT_MS;
+  const originalFindProfile = ApplicantProfile.findOne;
+  const originalFindCv = CVDocument.findOne;
+  const originalCreate = AIResult.create;
+  const originalFetch = global.fetch;
+  let saved;
+
+  process.env.AI_SERVICE_ENABLED = "true";
+  process.env.AI_SERVICE_TIMEOUT_MS = String(timeoutMs || 60_000);
+  ApplicantProfile.findOne = async () => ({ _id: "profile-1" });
+  CVDocument.findOne = async () => ({
+    _id: "cv-1",
+    extractedText: "Kinh nghiem lam viec",
+    language: "VI"
+  });
+  AIResult.create = async (payload) => {
+    const result = {
+      ...payload,
+      _id: { toString: () => "failed-result-1" },
+      accountId: { toString: () => "account-1" },
+      createdAt: new Date(),
+      save: async () => {
+        saved = result;
+      }
+    };
+    return result;
+  };
+  global.fetch = fetchImpl;
+
+  try {
+    await assert.rejects(
+      aiService.translateToEnglish("account-1", "cv-1", {}),
+      (error) => error.statusCode === expectedStatus && error.code === expectedCode
+    );
+    assert.equal(saved.status, "FAILED");
+    assert.equal(saved.errorCode, expectedCode);
+    assert.ok(saved.completedAt instanceof Date);
+    assert.equal(saved.resultText, undefined);
+  } finally {
+    if (originalEnabled === undefined) delete process.env.AI_SERVICE_ENABLED;
+    else process.env.AI_SERVICE_ENABLED = originalEnabled;
+    if (originalTimeout === undefined) delete process.env.AI_SERVICE_TIMEOUT_MS;
+    else process.env.AI_SERVICE_TIMEOUT_MS = originalTimeout;
+    ApplicantProfile.findOne = originalFindProfile;
+    CVDocument.findOne = originalFindCv;
+    AIResult.create = originalCreate;
+    global.fetch = originalFetch;
+  }
+};
+
 test("AI client normalizes the base URL and validates health responses", async () => {
   const calls = [];
   const client = new AiServiceClient({
@@ -58,6 +143,40 @@ test("AI client normalizes the base URL and validates health responses", async (
   assert.equal(health.status, "ok");
   assert.equal(calls[0].input, "http://ai:8000/health");
   assert.equal(calls[0].init.method, "GET");
+});
+
+test("AI client sends the internal key and request ID only to the configured AI service", async () => {
+  const client = new AiServiceClient({
+    baseUrl: "http://ai:8000",
+    internalApiKey: "test-only-internal-key-not-a-real-secret",
+    requestId: "request-12345678",
+    fetchImpl: async (input, init) => {
+      assert.equal(input, "http://ai:8000/health");
+      assert.equal(init.headers.get("X-AI-Internal-Key"), "test-only-internal-key-not-a-real-secret");
+      assert.equal(init.headers.get("X-Request-ID"), "request-12345678");
+      return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+    }
+  });
+
+  await client.health();
+});
+
+test("AI client preserves the safe FastAPI error code without exposing internals", async () => {
+  const client = new AiServiceClient({
+    fetchImpl: async () => new Response(JSON.stringify({
+      detail: { code: "AI_UNAUTHORIZED", message: "Unauthorized AI service request" }
+    }), { status: 401 })
+  });
+
+  await assert.rejects(
+    client.analyzeCv(analyzeRequest),
+    (error) => {
+      assert.equal(error.statusCode, 401);
+      assert.equal(error.upstreamCode, "AI_UNAUTHORIZED");
+      assert.equal(error.message, "AI service authentication failed");
+      return true;
+    }
+  );
 });
 
 test("AI client maps FastAPI validation errors without exposing raw internals", async () => {
@@ -101,11 +220,104 @@ test("AI client maps AbortController timeouts", async () => {
   );
 });
 
+test("AI client rejects mock output unless it is explicitly allowed", async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({
+    ...analyzeResponse,
+    meta: { source: "mock", provider: "mock", model: "mock-test" }
+  }), { status: 200 });
+
+  await assert.rejects(
+    new AiServiceClient({ fetchImpl }).analyzeCv(analyzeRequest),
+    (error) => error.kind === "invalid_response" && /mock output/.test(error.message)
+  );
+
+  const allowed = await new AiServiceClient({
+    allowMockOutput: true,
+    fetchImpl
+  }).analyzeCv(analyzeRequest);
+  assert.equal(allowed.meta.source, "mock");
+});
+
+test("AI client rejects a successful response that does not prove Groq provenance", async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({
+    ...analyzeResponse,
+    meta: { source: "groq", model: "test" }
+  }), { status: 200 });
+
+  await assert.rejects(
+    new AiServiceClient({ fetchImpl }).analyzeCv(analyzeRequest),
+    (error) => error.kind === "invalid_response" && /source and provider/.test(error.message)
+  );
+});
+
+test("AI service connection failure marks AIResult failed", async () => {
+  await runTranslationFailureCase({
+    fetchImpl: async () => {
+      throw new TypeError("connect failed");
+    },
+    expectedStatus: 503,
+    expectedCode: "AI_SERVICE_UNAVAILABLE"
+  });
+});
+
+test("AI service timeout marks AIResult failed", async () => {
+  await runTranslationFailureCase({
+    timeoutMs: 5,
+    fetchImpl: async (_input, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const error = new Error("aborted");
+        error.name = "AbortError";
+        reject(error);
+      });
+    }),
+    expectedStatus: 504,
+    expectedCode: "AI_SERVICE_TIMEOUT"
+  });
+});
+
+test("AI service 5xx marks AIResult failed without mock fallback", async () => {
+  await runTranslationFailureCase({
+    fetchImpl: async () => new Response(JSON.stringify({ detail: "provider failed" }), { status: 503 }),
+    expectedStatus: 502,
+    expectedCode: "AI_PROVIDER_ERROR"
+  });
+});
+
+test("AI service authentication failure is mapped to a safe service error", async () => {
+  await runTranslationFailureCase({
+    fetchImpl: async () => new Response(JSON.stringify({
+      detail: { code: "AI_UNAUTHORIZED", message: "Internal AI service authentication failed." }
+    }), { status: 401 }),
+    expectedStatus: 503,
+    expectedCode: "AI_SERVICE_AUTH_FAILED"
+  });
+});
+
+test("FastAPI provider timeout taxonomy remains a 504 at the Node boundary", async () => {
+  await runTranslationFailureCase({
+    fetchImpl: async () => new Response(JSON.stringify({
+      detail: { code: "AI_PROVIDER_TIMEOUT", message: "AI provider request timed out." }
+    }), { status: 504 }),
+    expectedStatus: 504,
+    expectedCode: "AI_PROVIDER_TIMEOUT"
+  });
+});
+
+test("invalid AI service response marks AIResult failed", async () => {
+  await runTranslationFailureCase({
+    fetchImpl: async () => new Response(JSON.stringify({ translated: "missing notes" }), { status: 200 }),
+    expectedStatus: 502,
+    expectedCode: "AI_PROVIDER_ERROR"
+  });
+});
+
 test("ownership failure happens before any AI service call", async () => {
+  const originalEnabled = process.env.AI_SERVICE_ENABLED;
   const originalFindProfile = ApplicantProfile.findOne;
   const originalFetch = global.fetch;
   let fetchCalled = false;
 
+  process.env.AI_SERVICE_ENABLED = "true";
   ApplicantProfile.findOne = async () => null;
   global.fetch = async () => {
     fetchCalled = true;
@@ -119,45 +331,90 @@ test("ownership failure happens before any AI service call", async () => {
     );
     assert.equal(fetchCalled, false);
   } finally {
+    if (originalEnabled === undefined) delete process.env.AI_SERVICE_ENABLED;
+    else process.env.AI_SERVICE_ENABLED = originalEnabled;
     ApplicantProfile.findOne = originalFindProfile;
     global.fetch = originalFetch;
   }
 });
 
-test("explicit mock mode still persists a completed AIResult", async () => {
+test("disabled AI fails closed without calling dependencies or creating AIResult", async () => {
+  const originalEnabled = process.env.AI_SERVICE_ENABLED;
+  const originalFindProfile = ApplicantProfile.findOne;
+  const originalCreate = AIResult.create;
+  const originalFetch = global.fetch;
+  let profileRead = false;
+  let resultCreated = false;
+  let fetchCalled = false;
+
+  process.env.AI_SERVICE_ENABLED = "false";
+  ApplicantProfile.findOne = async () => {
+    profileRead = true;
+    return { _id: "profile-1" };
+  };
+  AIResult.create = async () => {
+    resultCreated = true;
+  };
+  global.fetch = async () => {
+    fetchCalled = true;
+    return new Response("{}", { status: 200 });
+  };
+
+  try {
+    for (const action of [aiService.generateScore, aiService.translateAndScore]) {
+      await assert.rejects(
+        action("account-1", "cv-1", {}),
+        (error) => error.statusCode === 503 && error.code === "AI_FEATURE_DISABLED"
+      );
+    }
+    assert.equal(profileRead, false);
+    assert.equal(resultCreated, false);
+    assert.equal(fetchCalled, false);
+  } finally {
+    if (originalEnabled === undefined) delete process.env.AI_SERVICE_ENABLED;
+    else process.env.AI_SERVICE_ENABLED = originalEnabled;
+    ApplicantProfile.findOne = originalFindProfile;
+    AIResult.create = originalCreate;
+    global.fetch = originalFetch;
+  }
+});
+
+test("workflow marks its first AIResult failed when the second result cannot be created", async () => {
   const originalEnabled = process.env.AI_SERVICE_ENABLED;
   const originalFindProfile = ApplicantProfile.findOne;
   const originalFindCv = CVDocument.findOne;
   const originalCreate = AIResult.create;
+  let created = 0;
+  let firstResult;
 
-  process.env.AI_SERVICE_ENABLED = "false";
+  process.env.AI_SERVICE_ENABLED = "true";
   ApplicantProfile.findOne = async () => ({ _id: "profile-1" });
   CVDocument.findOne = async () => ({
-    _id: "cv-1",
-    extractedText: "Built an API",
-    language: "VI"
+    _id: { toString: () => "cv-1" },
+    extractedText: "Backend experience",
+    language: "EN"
   });
-
-  const saved = [];
   AIResult.create = async (payload) => {
-    const result = {
+    created += 1;
+    if (created === 2) throw new Error("database write failed");
+    firstResult = {
       ...payload,
-      _id: { toString: () => "result-1" },
+      _id: { toString: () => "translation-result-1" },
       accountId: { toString: () => "account-1" },
       createdAt: new Date(),
-      save: async () => saved.push(result)
+      save: async () => undefined
     };
-    return result;
+    return firstResult;
   };
 
   try {
-    const result = await aiService.generateScore("account-1", "cv-1", {});
-    assert.equal(result.status, "COMPLETED");
-    assert.equal(result.score, 78);
-    assert.equal(saved.length, 1);
-    assert.match(result.resultText, /overallScore/);
-
-    assert.equal(result.result.overallScore, 78);
+    await assert.rejects(
+      aiService.translateAndScore("account-1", "cv-1", { industrySlug: "language" }),
+      /database write failed/
+    );
+    assert.equal(firstResult.status, "FAILED");
+    assert.equal(firstResult.errorCode, "AI_RESULT_INITIALIZATION_FAILED");
+    assert.ok(firstResult.completedAt instanceof Date);
   } finally {
     if (originalEnabled === undefined) delete process.env.AI_SERVICE_ENABLED;
     else process.env.AI_SERVICE_ENABLED = originalEnabled;
@@ -196,7 +453,7 @@ test("FastAPI translation response is persisted without replacing the CV", async
   global.fetch = async () => new Response(JSON.stringify({
     translated: "Work experience",
     notes: [],
-    meta: { source: "mock" }
+    meta: { source: "groq", provider: "groq", model: "test" }
   }), { status: 200 });
 
   try {
@@ -365,7 +622,7 @@ test("translation extracts text from a file when extractedText is absent", async
     return new Response(JSON.stringify({
       translated: "Backend developer with API experience",
       notes: [],
-      meta: { source: "mock" }
+      meta: { source: "groq", provider: "groq", model: "test" }
     }), { status: 200 });
   };
 

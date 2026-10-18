@@ -45,6 +45,7 @@ const run = async () => {
   const mongoUri = process.env.AI_E2E_MONGODB_URI
     || "mongodb://127.0.0.1:27017/cvbuddy_ai_e2e";
   const aiServiceUrl = process.env.AI_SERVICE_URL || "http://localhost:8001";
+  const internalApiKey = (process.env.AI_INTERNAL_API_KEY || "").trim();
 
   const isLocalMongo = mongoUri.startsWith("mongodb://localhost")
     || mongoUri.startsWith("mongodb://127.0.0.1");
@@ -52,9 +53,15 @@ const run = async () => {
   if (!process.env.AI_E2E_ALLOW_REMOTE && !isLocalMongo) {
     throw new Error("Refusing non-local MongoDB URI. Set AI_E2E_ALLOW_REMOTE=true only for an intentional test database.");
   }
+  if (!internalApiKey) {
+    throw new Error("AI_INTERNAL_API_KEY is required and must match the local FastAPI test runtime.");
+  }
 
   process.env.AI_SERVICE_ENABLED = "true";
+  process.env.AI_SERVICE_ALLOW_MOCK_OUTPUT = "true";
+  process.env.NODE_ENV = "test";
   process.env.AI_SERVICE_URL = aiServiceUrl;
+  process.env.AI_INTERNAL_API_KEY = internalApiKey;
   process.env.UPLOAD_DIR = process.env.UPLOAD_DIR || "uploads";
   process.env.AI_DEFAULT_INDUSTRY_SLUG = "language";
 

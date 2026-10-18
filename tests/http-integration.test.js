@@ -228,5 +228,43 @@ test("readiness returns a dependency-unavailable error without contacting extern
   assert.equal(readiness.response.status, 503);
   assert.equal(readiness.payload.data.checks.mongo, true);
   assert.equal(readiness.payload.data.checks.cloudinary, false);
-  assert.equal(readiness.payload.data.checks.ai, true);
+  assert.deepEqual(readiness.payload.data.checks.ai, { enabled: false, ready: null });
+});
+
+test("disabled AI endpoint returns the stable capability error", async () => {
+  const applicant = await createAccount({ email: "ai-disabled@example.com" });
+  const missingKey = await request("/api/ai/cvs/507f1f77bcf86cd799439011/score", {
+    method: "POST",
+    headers: authHeader(applicant),
+    body: {}
+  });
+  assert.equal(missingKey.response.status, 400);
+  assert.equal(missingKey.payload.errors[0].field, "Idempotency-Key");
+
+  const response = await request("/api/ai/cvs/507f1f77bcf86cd799439011/score", {
+    method: "POST",
+    headers: {
+      ...authHeader(applicant),
+      "Idempotency-Key": "ai-disabled-test-001"
+    },
+    body: {}
+  });
+
+  assert.equal(response.response.status, 503);
+  assert.equal(response.payload.success, false);
+  assert.equal(response.payload.code, "AI_FEATURE_DISABLED");
+  assert.equal(response.payload.message, "AI features are temporarily unavailable.");
+});
+
+test("usage endpoint returns a server-owned FREE allowance for the applicant", async () => {
+  const applicant = await createAccount({ email: "usage-summary@example.com" });
+  const response = await request("/api/usage/me", {
+    headers: authHeader(applicant)
+  });
+
+  assert.equal(response.response.status, 200);
+  assert.equal(response.payload.data.usage.planCode, "FREE");
+  assert.equal(response.payload.data.usage.creditsGranted, 4);
+  assert.equal(response.payload.data.usage.creditsRemaining, 4);
+  assert.equal(response.payload.data.usage.featureCosts.CV_EVALUATION, 2);
 });

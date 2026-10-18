@@ -682,7 +682,10 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        502: errorResponse,
+        503: errorResponse,
+        504: errorResponse
       }
     }
   },
@@ -716,7 +719,10 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        502: errorResponse,
+        503: errorResponse,
+        504: errorResponse
       }
     }
   },
@@ -750,7 +756,10 @@ const swaggerPaths = {
         400: errorResponse,
         401: errorResponse,
         403: errorResponse,
-        404: errorResponse
+        404: errorResponse,
+        502: errorResponse,
+        503: errorResponse,
+        504: errorResponse
       }
     }
   },
@@ -1546,7 +1555,7 @@ const swaggerComponents = {
         },
         resultText: {
           type: "string",
-          example: "{\"summary\":\"Mock CV feedback\",\"strengths\":[\"Clear technical skills\"]}"
+          example: "{\"overall_score\":82,\"meta\":{\"source\":\"groq\",\"provider\":\"groq\"}}"
         },
         result: {
           description: "Parsed structured result for detail/action responses; resultText remains for backward compatibility",
@@ -1569,7 +1578,7 @@ const swaggerComponents = {
         errorCode: {
           type: "string",
           nullable: true,
-          example: "AI_PROVIDER_TIMEOUT"
+          example: "AI_SERVICE_TIMEOUT"
         },
         industrySlug: {
           type: "string",
