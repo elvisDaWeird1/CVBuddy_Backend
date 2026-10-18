@@ -269,14 +269,31 @@ const processPayOSWebhook = async ({ payload, adapter, now = new Date() }: {
   adapter?: PayOSAdapter;
   now?: Date;
 }) => {
-  assertBillingEnabled();
   let payment: VerifiedPayment;
   try {
     payment = await (adapter || createPayOSAdapter()).verifyWebhook(payload);
   } catch (error) {
     throw new ApiError(400, "Invalid payment webhook", [], "INVALID_PAYMENT_WEBHOOK");
   }
-  return finalizeVerifiedPayment({ payment, source: "WEBHOOK", now });
+
+  // PayOS validates a webhook URL with a signed sample that is not a CVBuddy
+  // checkout. Acknowledge only after signature verification and only when no
+  // local order can match it; this path intentionally performs no writes.
+  const matchingOrder = await BillingOrder.exists({ orderCode: payment.providerOrderCode });
+  if (!matchingOrder) {
+    console.warn(JSON.stringify({
+      event: "billing_webhook_signed_unmatched",
+      provider: "PAYOS",
+      paymentStatus: payment.status
+    }));
+    return { acknowledged: true, matched: false };
+  }
+
+  // A genuine payment event must remain retryable while billing is disabled;
+  // do not acknowledge it as processed before its durable transaction runs.
+  assertBillingEnabled();
+  const finalized = await finalizeVerifiedPayment({ payment, source: "WEBHOOK", now });
+  return { acknowledged: true, matched: true, ...finalized };
 };
 
 const reconciliationBackoffMs = (attempt: number) => {
