@@ -76,10 +76,43 @@ const serializeBillingOrder = (order) => ({
   status: order.status,
   checkoutUrl: order.checkoutUrl || null,
   expiresAt: order.expiresAt,
+  expiredAt: order.expiredAt || null,
   paidAt: order.paidAt || null,
+  lastReconciledAt: order.lastReconciledAt || null,
+  reconciliationAttempts: order.reconciliationAttempts || 0,
   createdAt: order.createdAt,
   updatedAt: order.updatedAt
 });
+
+const expireBillingOrder = async (orderId, now = new Date(), reason = "CHECKOUT_EXPIRED") =>
+  BillingOrder.findOneAndUpdate(
+    { _id: orderId, status: BILLING_ORDER_STATUSES.PENDING, expiresAt: { $lte: now } },
+    { $set: { status: BILLING_ORDER_STATUSES.EXPIRED, expiredAt: now, lastReconciliationErrorCode: reason } },
+    { new: true }
+  );
+
+const expirePendingBillingOrders = async ({ now = new Date(), limit = 100 } = {}) => {
+  const candidates = await BillingOrder.find({
+    status: BILLING_ORDER_STATUSES.PENDING,
+    expiresAt: { $lte: now }
+  }).sort({ expiresAt: 1 }).limit(Math.min(Math.max(limit, 1), 500)).select("_id").lean();
+  let expired = 0;
+  for (const candidate of candidates) {
+    if (await expireBillingOrder(candidate._id, now)) expired += 1;
+  }
+  return { scanned: candidates.length, expired };
+};
+
+const assertReusableOrder = async (order, now: Date) => {
+  if (order.status === BILLING_ORDER_STATUSES.PENDING && order.expiresAt > now) return order;
+  if (order.status === BILLING_ORDER_STATUSES.PENDING) await expireBillingOrder(order._id, now);
+  throw new ApiError(
+    409,
+    "The previous checkout is no longer reusable. Start a new checkout with a new idempotency key.",
+    [],
+    "BILLING_CHECKOUT_RETRY_REQUIRED"
+  );
+};
 
 const createCheckout = async ({
   accountId,
@@ -105,7 +138,7 @@ const createCheckout = async ({
     if (existing.planCode !== planCode) {
       throw new ApiError(409, "Idempotency key was already used for a different plan", [], "IDEMPOTENCY_CONFLICT");
     }
-    return { order: serializeBillingOrder(existing), created: false };
+    return { order: serializeBillingOrder(await assertReusableOrder(existing, now)), created: false };
   }
 
   const config = getBillingConfig();
@@ -126,7 +159,17 @@ const createCheckout = async ({
       });
       break;
     } catch (error) {
-      if ((error as { code?: number }).code !== 11000 || attempt === 2) throw error;
+      if ((error as { code?: number }).code === 11000) {
+        const concurrent = await BillingOrder.findOne({ accountId, idempotencyKey: normalizedKey });
+        if (concurrent) {
+          if (concurrent.planCode !== planCode) {
+            throw new ApiError(409, "Idempotency key was already used for a different plan", [], "IDEMPOTENCY_CONFLICT");
+          }
+          return { order: serializeBillingOrder(await assertReusableOrder(concurrent, now)), created: false };
+        }
+        if (attempt < 2) continue;
+      }
+      throw error;
     }
   }
   if (!order) throw new Error("Unable to allocate a billing order code");
@@ -215,6 +258,14 @@ const processPayOSWebhook = async ({
         result = { order: serializeBillingOrder(order), granted: false };
         return;
       }
+      if (order.status === BILLING_ORDER_STATUSES.EXPIRED || order.status === BILLING_ORDER_STATUSES.CANCELLED) {
+        throw new ApiError(
+          409,
+          "A late verified payment requires the approved reconciliation policy.",
+          [],
+          "PAYMENT_LATE_SETTLEMENT_REQUIRES_RECONCILIATION"
+        );
+      }
       if (order.status !== BILLING_ORDER_STATUSES.PENDING) {
         throw new ApiError(409, "Billing order is not payable", [], "PAYMENT_STATE_CONFLICT");
       }
@@ -239,6 +290,8 @@ const processPayOSWebhook = async ({
 
 export {
   createCheckout,
+  expireBillingOrder,
+  expirePendingBillingOrders,
   getMyBilling,
   getMyBillingOrder,
   processPayOSWebhook,
