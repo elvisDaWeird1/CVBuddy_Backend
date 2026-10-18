@@ -24,7 +24,11 @@ export interface IBillingOrder extends Document {
   checkoutUrl?: string;
   providerReference?: string;
   expiresAt: Date;
+  expiredAt?: Date;
   paidAt?: Date;
+  lastReconciledAt?: Date;
+  reconciliationAttempts: number;
+  lastReconciliationErrorCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,7 +51,11 @@ const BillingOrderSchema = new mongoose.Schema<IBillingOrder>(
     checkoutUrl: { type: String, trim: true },
     providerReference: { type: String, trim: true },
     expiresAt: { type: Date, required: true },
-    paidAt: { type: Date }
+    expiredAt: { type: Date },
+    paidAt: { type: Date },
+    lastReconciledAt: { type: Date },
+    reconciliationAttempts: { type: Number, default: 0, min: 0, required: true },
+    lastReconciliationErrorCode: { type: String, trim: true, maxlength: 100 }
   },
   { collection: "billing_orders", timestamps: true }
 );
