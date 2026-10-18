@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { assertCloudinaryConfigured, getCloudinaryConfig } from "./cloudinary.config";
 import { validateSecurityConfig } from "./security";
 import { getAiServiceConfig } from "../modules/ai/ai.config";
-import { getBillingConfig } from "../modules/billing/billing.config";
+import { getBillingConfig, getBillingReconciliationConfig } from "../modules/billing/billing.config";
 import { getMongoTransactionCapability } from "./mongoTransactions";
 
 const isAiEnabled = () => getAiServiceConfig().enabled;
@@ -77,6 +77,8 @@ const validateProductionRuntimeConfig = () => {
 
   const billing = getBillingConfig();
   if (billing.enabled) {
+    // Parse this here so an invalid server-side worker setting fails before serving billing traffic.
+    getBillingReconciliationConfig();
     if (!billing.clientId || !billing.apiKey || !billing.checksumKey) {
       throw new Error("PAYOS_CLIENT_ID, PAYOS_API_KEY, and PAYOS_CHECKSUM_KEY are required when billing is enabled in production.");
     }
