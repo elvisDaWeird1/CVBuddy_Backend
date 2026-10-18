@@ -1,7 +1,7 @@
 # Billing reconciliation runbook
 
-Billing remains disabled by default. Do not enable it until the staging index preflight,
-PayOS sandbox contract check, and transaction-topology readiness check have passed.
+Billing reconciliation remains disabled by default. Do not enable it until controlled index
+rollout, Controlled Live PayOS provider verification, and transaction-topology readiness pass.
 
 ## Worker contract
 
@@ -15,6 +15,26 @@ The default backoff is 1 minute, 5 minutes, 15 minutes, then 60 minutes. Automat
 retries stop after 24 hours; the order is retained with
 `RECONCILIATION_EXHAUSTED` for manual review. A provider outage never changes an order
 to `FAILED`.
+
+At startup the worker emits the safe `billing_reconciliation_worker_started` event.
+Each completed cycle emits `billing_reconciliation_cycle_completed` with only the
+candidate and reconciliation counts. These events are the operational evidence for a
+zero-candidate smoke cycle; they contain no order identifiers, provider payloads, or
+credentials.
+
+## One-shot provider verification
+
+Before enabling the worker, an operator may run a single read-only check against one
+already-paid internal order:
+
+```powershell
+npm run verify:payos-payment -- --database test --order-id "<internal-order-id>"
+```
+
+The command requires both arguments, refuses a database-name mismatch, reads one local
+order, performs one PayOS status lookup, and prints only status classifications and
+boolean match results. It never creates a checkout, claims a lease, updates an order,
+grants an entitlement, or exposes provider references or credentials.
 
 ## Support workflow
 
@@ -40,3 +60,10 @@ The general browser/API limiter skips only `/api/billing/webhooks/payos`. The de
 webhook limiter remains active, then webhook signature verification runs before the
 transactional finalization. A failed transaction returns a non-2xx response so PayOS
 may retry; reconciliation covers missed deliveries.
+
+## Shutdown and rollback
+
+The server retains the worker cleanup callback and clears its interval on `SIGTERM` or
+`SIGINT`. If reconciliation behaves unexpectedly, first set
+`BILLING_RECONCILIATION_ENABLED=false` and redeploy. Do not alter paid orders or grants
+manually; inspect safe order status, lease, retry count, and error code before escalation.

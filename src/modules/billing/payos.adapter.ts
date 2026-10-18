@@ -28,6 +28,17 @@ const safeProviderError = (code: string) => {
   return error;
 };
 
+const classifyProviderError = (error: unknown) => {
+  const candidate = error as { status?: unknown; statusCode?: unknown; name?: unknown; code?: unknown };
+  const status = Number(candidate?.status ?? candidate?.statusCode);
+  if (status === 429) return "BILLING_PROVIDER_RATE_LIMIT";
+  if (Number.isFinite(status) && status >= 500) return "BILLING_PROVIDER_UNAVAILABLE";
+  if (candidate?.name === "ConnectionTimeoutError" || candidate?.code === "ETIMEDOUT") {
+    return "BILLING_PROVIDER_TIMEOUT";
+  }
+  return "BILLING_PROVIDER_UNAVAILABLE";
+};
+
 const asDate = (value: unknown) => {
   if (!value) return undefined;
   const date = new Date(String(value));
@@ -71,9 +82,9 @@ const createPayOSAdapter = (client = getPayOSClient() as any): PayOSAdapter => (
       return normalize(await client.paymentRequests.get(paymentLinkId || orderCode));
     } catch (error) {
       if ((error as { code?: string }).code === "BILLING_PROVIDER_MALFORMED_RESPONSE") throw error;
-      throw safeProviderError("BILLING_PROVIDER_UNAVAILABLE");
+      throw safeProviderError(classifyProviderError(error));
     }
   }
 });
 
-export { createPayOSAdapter, safeProviderError };
+export { classifyProviderError, createPayOSAdapter, safeProviderError };

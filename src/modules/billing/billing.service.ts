@@ -415,25 +415,44 @@ const reconcileDueBillingOrders = async ({ adapter, now = new Date() }: { adapte
   return { scanned: candidates.length, reconciled: results.filter((result) => result.claimed).length, results };
 };
 
-const startBillingReconciliation = () => {
+const startBillingReconciliation = ({
+  reconcile = reconcileDueBillingOrders,
+  setIntervalFn = setInterval,
+  clearIntervalFn = clearInterval
+}: {
+  reconcile?: () => Promise<unknown>;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
+} = {}) => {
   const config = getBillingReconciliationConfig();
   if (!config.enabled || !getBillingConfig().enabled) return () => undefined;
   let running = false;
+  console.info(JSON.stringify({
+    event: "billing_reconciliation_worker_started",
+    intervalMs: config.intervalMs,
+    batchSize: config.batchSize,
+    leaseMs: config.leaseMs
+  }));
   const tick = async () => {
     if (running) return;
     running = true;
     try {
-      await reconcileDueBillingOrders();
+      const result = await reconcile() as { scanned?: unknown; reconciled?: unknown };
+      console.info(JSON.stringify({
+        event: "billing_reconciliation_cycle_completed",
+        scanned: typeof result?.scanned === "number" ? result.scanned : undefined,
+        reconciled: typeof result?.reconciled === "number" ? result.reconciled : undefined
+      }));
     } catch (error) {
       console.error(JSON.stringify({ event: "billing_reconciliation_worker_failure", code: "BILLING_RECONCILIATION_WORKER_FAILURE" }));
     } finally {
       running = false;
     }
   };
-  const timer = setInterval(() => void tick(), config.intervalMs);
+  const timer = setIntervalFn(() => void tick(), config.intervalMs);
   timer.unref();
   void tick();
-  return () => clearInterval(timer);
+  return () => clearIntervalFn(timer);
 };
 
 export {

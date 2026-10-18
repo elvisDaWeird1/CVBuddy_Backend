@@ -5,7 +5,8 @@ const { MongoMemoryReplSet } = require("mongodb-memory-server");
 
 const BillingOrder = require("../src/modules/billing/billingOrder.model").default;
 const EntitlementGrant = require("../src/modules/entitlements/entitlementGrant.model").default;
-const { createPayOSAdapter } = require("../src/modules/billing/payos.adapter");
+const { classifyProviderError, createPayOSAdapter } = require("../src/modules/billing/payos.adapter");
+const { verifyPaidOrderProviderState } = require("../src/modules/billing/paymentProviderVerification");
 const {
   createCheckout,
   expirePendingBillingOrders,
@@ -13,7 +14,8 @@ const {
   getMyBilling,
   processPayOSWebhook,
   reconcileBillingOrder,
-  reconciliationBackoffMs
+  reconciliationBackoffMs,
+  startBillingReconciliation
 } = require("../src/modules/billing/billing.service");
 
 let replSet;
@@ -405,6 +407,72 @@ test("PayOS adapter allowlists status and returns only normalized safe fields", 
     () => createPayOSAdapter({ ...fakeSdk, paymentRequests: { ...fakeSdk.paymentRequests, get: async () => ({ id: "x", orderCode: 123, amount: 1, status: "UNRECOGNIZED" }) } }).getPaymentStatus("x", 123),
     (error) => error.code === "BILLING_PROVIDER_MALFORMED_RESPONSE" && !String(error.message).includes("secret")
   );
+});
+
+test("PayOS adapter classifies rate limits, timeouts, and provider 5xx without leaking provider details", async () => {
+  const fakeSdk = {
+    paymentRequests: { create: async () => ({}) },
+    webhooks: { verify: async () => ({}) }
+  };
+  const cases = [
+    [{ status: 429 }, "BILLING_PROVIDER_RATE_LIMIT"],
+    [{ name: "ConnectionTimeoutError" }, "BILLING_PROVIDER_TIMEOUT"],
+    [{ status: 503 }, "BILLING_PROVIDER_UNAVAILABLE"]
+  ];
+  for (const [sourceError, expectedCode] of cases) {
+    const adapterWithFailure = createPayOSAdapter({
+      ...fakeSdk,
+      paymentRequests: { ...fakeSdk.paymentRequests, get: async () => { throw Object.assign(new Error("provider failure"), sourceError); } }
+    });
+    await assert.rejects(
+      () => adapterWithFailure.getPaymentStatus("link-safe", 123),
+      (error) => error.code === expectedCode && !String(error.message).includes("provider failure")
+    );
+  }
+  assert.equal(classifyProviderError({ status: 429 }), "BILLING_PROVIDER_RATE_LIMIT");
+});
+
+test("read-only provider verification compares a paid order without mutating it", async () => {
+  const order = { orderCode: 456, paymentLinkId: "safe-link", amountVnd: 79000, status: "PAID" };
+  const verification = await verifyPaidOrderProviderState({
+    order,
+    adapter: { ...adapter, getPaymentStatus: async () => ({ providerOrderCode: 456, paymentLinkId: "safe-link", amount: 79000, currency: "VND", status: "PAID" }) }
+  });
+  assert.equal(verification.consistent, true);
+  assert.equal(verification.providerPaid, true);
+  const mismatch = await verifyPaidOrderProviderState({
+    order,
+    adapter: { ...adapter, getPaymentStatus: async () => ({ providerOrderCode: 456, paymentLinkId: "safe-link", amount: 1, currency: "VND", status: "PAID" }) }
+  });
+  assert.equal(mismatch.consistent, false);
+  assert.equal(order.amountVnd, 79000);
+});
+
+test("reconciliation reclaims an expired lease and worker cleanup clears its interval", async () => {
+  const accountId = new mongoose.Types.ObjectId();
+  const now = new Date("2026-10-18T00:00:00.000Z");
+  const checkout = await createCheckout({ accountId, planCode: "PRO_30D", idempotencyKey: "billing-expired-lease-001", adapter, now });
+  await BillingOrder.updateOne({ _id: checkout.order.id }, { $set: { reconciliationLeaseUntil: new Date(now.getTime() - 1) } });
+  const claimed = await reconcileBillingOrder({ orderId: checkout.order.id, adapter, now, force: true });
+  assert.equal(claimed.claimed, true);
+
+  const previous = process.env.BILLING_RECONCILIATION_ENABLED;
+  process.env.BILLING_RECONCILIATION_ENABLED = "true";
+  let cleared;
+  let runs = 0;
+  try {
+    const stop = startBillingReconciliation({
+      reconcile: async () => { runs += 1; },
+      setIntervalFn: () => ({ unref: () => undefined }),
+      clearIntervalFn: (timer) => { cleared = timer; }
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    stop();
+    assert.equal(runs, 1);
+    assert.ok(cleared);
+  } finally {
+    process.env.BILLING_RECONCILIATION_ENABLED = previous;
+  }
 });
 
 test("provider cancelled reconciliation transitions safely without an entitlement", async () => {
