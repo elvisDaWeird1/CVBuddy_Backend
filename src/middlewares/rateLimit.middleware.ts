@@ -10,6 +10,7 @@ const createRateLimit = (windowMs: number, limit: number, message: string) => ra
   limit,
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test" || process.env.DISABLE_RATE_LIMIT === "true",
   handler: rateLimitError(message)
 });
 
@@ -33,10 +34,22 @@ const aiRateLimit = createRateLimit(
   20,
   "Too many AI requests. Please try again later."
 );
+const billingCheckoutRateLimit = createRateLimit(
+  15 * 60 * 1000,
+  10,
+  "Too many checkout attempts. Please try again later."
+);
+const billingWebhookRateLimit = createRateLimit(
+  60 * 1000,
+  60,
+  "Too many payment webhook attempts. Please try again later."
+);
 
 export {
   aiRateLimit,
   authRateLimit,
+  billingCheckoutRateLimit,
+  billingWebhookRateLimit,
   createRateLimit,
   generalRateLimit,
   uploadRateLimit

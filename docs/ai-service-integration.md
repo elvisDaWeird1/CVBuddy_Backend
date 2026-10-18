@@ -5,10 +5,10 @@
 The independent FastAPI repository remains outside the main repository:
 
 ```text
-Frontend / Mobile -> Node backend (/api/ai/*) -> FastAPI cvbuddy-ai (/v1/*) -> Groq / Ollama / Mock
+Frontend / Mobile -> Node backend (/api/ai/*) -> FastAPI cvbuddy-ai (/v1/*) -> Groq
 ```
 
-The Node backend owns authentication, applicant/CV ownership, public response formatting, AIResult persistence, and safe error mapping. Frontend and mobile must not call FastAPI directly. No file under `D:\KI 7\cvbuddy\cvbuddy` is part of this integration change.
+The Node backend owns user authentication, applicant/CV ownership, public response formatting, AIResult persistence, and safe error mapping. FastAPI separately requires service-to-service authentication. Frontend and mobile must not call FastAPI directly or receive either AI secret.
 
 ## Source of truth
 
@@ -17,7 +17,7 @@ The Node backend owns authentication, applicant/CV ownership, public response fo
 - Contract: `cvbuddy-ai/docs/AI_CONTRACT.md` and its FastAPI schemas/routes
 - Primary FastAPI prefix used by Node: `/v1`
 
-The FastAPI service also mounts `/ai` aliases, but Node uses `/v1` because that is the configured frontend path.
+`/v1` is the only AI API prefix. The legacy duplicate `/ai` mount is removed.
 
 ## Environment
 
@@ -25,21 +25,26 @@ The FastAPI service also mounts `/ai` aliases, but Node uses `/v1` because that 
 AI_SERVICE_URL=http://localhost:8001
 AI_SERVICE_TIMEOUT_MS=60000
 AI_SERVICE_ENABLED=true
+AI_INTERNAL_API_KEY=
+AI_SERVICE_ALLOW_MOCK_OUTPUT=false
 AI_DEFAULT_INDUSTRY_SLUG=language
 AI_DEFAULT_VERTICAL_SLUG=
 AI_DEFAULT_COMPANY_MODEL=corporate
 AI_DEFAULT_LANGUAGE=both
-AI_DEFAULT_TIER=free
 AI_SUPPORTED_INDUSTRY_SLUGS=ai_software,business_administration,computer_science,language,law,marketing
 ```
 
-- `AI_SERVICE_ENABLED=true` is the normal path and calls FastAPI.
-- Set `AI_SERVICE_ENABLED=false` explicitly for local/test mock mode.
+- `AI_SERVICE_ENABLED=true` explicitly enables execution and calls FastAPI; missing/false fails closed.
+- `AI_SERVICE_ENABLED=false` returns `503 AI_FEATURE_DISABLED`. It never creates a mock result or calls FastAPI.
+- `AI_SERVICE_ALLOW_MOCK_OUTPUT=true` is an explicit local/test-only opt-in for a FastAPI mock provider. Production startup rejects this setting, and mock-marked responses are otherwise rejected before persistence.
 - FastAPI failure never silently falls back to a successful mock result.
-- `AI_SERVICE_URL` is normalized without a trailing slash.
-- `AI_SERVICE_TIMEOUT_MS` controls the AbortController timeout.
+- `AI_SERVICE_URL` is the service root, is normalized without a trailing slash, and must not contain `/v1`, a query, or a fragment.
+- `AI_INTERNAL_API_KEY` is shared only through the Node and FastAPI platform secret stores. Production requires at least 32 characters.
+- `AI_SERVICE_TIMEOUT_MS` controls the AbortController timeout and production accepts `1000` through `120000` milliseconds.
 - `AI_DEFAULT_INDUSTRY_SLUG` preserves compatibility with old clients that only send `targetRole`/`cvText`; new clients should send `industrySlug` when known.
 - Groq/Ollama credentials remain only in the FastAPI repository `.env`.
+- Node sends `X-AI-Internal-Key` and the incoming `X-Request-ID` on every FastAPI call. Redirects are rejected so the internal key is never forwarded to another host.
+- Production accepts a successful final AI result only when metadata contains both `source=groq` and `provider=groq`.
 
 ## Local startup
 
@@ -50,7 +55,7 @@ cd "D:\KI 7\cvbuddy\cvbuddy\cvbuddy-ai"
 Copy-Item .env.example .env
 ```
 
-Set `LLM_PROVIDER=mock` and `MOCK_LLM=true` in the copied `.env`, then run:
+Set `LLM_PROVIDER=mock`, `MOCK_LLM=true`, and a local-only `AI_INTERNAL_API_KEY` in the copied `.env`, then run:
 
 ```powershell
 docker compose up --build
@@ -67,6 +72,7 @@ npm run dev
 ```
 
 The backend still needs its normal MongoDB/JWT environment. Set `AI_SERVICE_URL=http://localhost:8001` in `backend/.env`.
+For this local mock exercise only, also set `AI_SERVICE_ENABLED=true`, the same `AI_INTERNAL_API_KEY`, and `AI_SERVICE_ALLOW_MOCK_OUTPUT=true`.
 
 ### Docker networking
 
@@ -88,8 +94,8 @@ The outer Compose file is not changed to build the nested AI repository because 
 
 | Node route | FastAPI calls | Stored result |
 | --- | --- | --- |
-| `POST /api/ai/cvs/:cvId/feedback` | `/v1/cv/extract-and-analyze` by default; two-step `/extract` + `/analyze` when JD/tier context is needed | `CV_FEEDBACK` |
-| `POST /api/ai/cvs/:cvId/score` | `/v1/cv/extract-and-analyze` by default; two-step `/extract` + `/analyze` when JD/tier context is needed | `CV_SCORING, score=overall_score` |
+| `POST /api/ai/cvs/:cvId/feedback` | `/v1/cv/extract-and-analyze` by default; two-step `/extract` + `/analyze` when JD context is needed | `CV_FEEDBACK` |
+| `POST /api/ai/cvs/:cvId/score` | `/v1/cv/extract-and-analyze` by default; two-step `/extract` + `/analyze` when JD context is needed | `CV_SCORING, score=overall_score` |
 | `POST /api/ai/cvs/:cvId/translate-to-english` | `/v1/translate` | `CV_TRANSLATION` |
 | `GET /api/ai/results` | MongoDB only | Existing response |
 | `GET /api/ai/results/:id` | MongoDB only | Existing response |
@@ -102,11 +108,11 @@ The current CV storage uses local `/uploads/cvs/<filename>` paths. For analysis,
 
 1. Authenticates the applicant and verifies the CV belongs to that account.
 2. Resolves the persisted local or trusted Cloudinary PDF/DOCX through the source adapter and enforces the configured size limit.
-3. When there is no JD context and the requested tier is free, sends the file as multipart field `file` to `POST /v1/cv/extract-and-analyze` with the supported query parameters.
-4. When `targetRole`, `jdExtract`, or subscription tier must be preserved, sends the file to `POST /v1/cv/extract`, then sends the returned `sections` and `local_metrics` to `POST /v1/cv/analyze`.
+3. When there is no JD context, sends the file as multipart field `file` to `POST /v1/cv/extract-and-analyze` with the supported query parameters.
+4. When `targetRole` or `jdExtract` must be preserved, sends the file to `POST /v1/cv/extract`, then sends the returned `sections` and `local_metrics` to `POST /v1/cv/analyze`.
 5. Stores the validated FastAPI response as JSON in `AIResult.resultText`.
 
-The legacy `targetRole` field maps to FastAPI `jd_extract.role_title`. Optional compatible fields are `industrySlug`, `verticalSlug`, `companyModel`, `language`, `tier`, `jdExtract`, `llmModel`, `extractionMode`, and `strictIndustryMatch`.
+The legacy `targetRole` field maps to FastAPI `jd_extract.role_title`. Optional compatible fields are `industrySlug`, `verticalSlug`, `companyModel`, `language`, `jdExtract`, `llmModel`, `extractionMode`, and `strictIndustryMatch`. The public API rejects client-supplied tier, plan, credits, and credit cost. Until the entitlement service is connected, Node always sends the server-owned `free` tier to FastAPI.
 
 Node never sends a Cloudinary URL directly to a multipart-only FastAPI endpoint. The CV source adapter downloads only persisted trusted Cloudinary sources, validates them, and sends the resulting bytes as multipart file. Unsupported remote storage returns an error.
 
@@ -134,15 +140,18 @@ The typed client includes methods for `/v1/portfolio/suggest` and `/v1/portfolio
 
 | Failure | Node response |
 | --- | --- |
+| AI capability disabled | `503 AI_FEATURE_DISABLED` |
 | CV not found/ownership mismatch | `404` before FastAPI call |
 | Stored file missing | `409` |
 | Unsupported/oversized file | `415`/`413` |
-| FastAPI unavailable | `503` |
-| Timeout | `504` |
+| FastAPI unavailable/connection failure | `503 AI_SERVICE_UNAVAILABLE` |
+| FastAPI internal authentication mismatch | `503 AI_SERVICE_AUTH_FAILED` |
+| Timeout | `504 AI_SERVICE_TIMEOUT` |
+| FastAPI-reported provider timeout | `504 AI_PROVIDER_TIMEOUT` |
 | FastAPI validation 4xx | Safe `4xx` response |
 | FastAPI quota | `429` |
-| FastAPI 5xx | `502` |
-| Invalid FastAPI JSON/schema | `502` |
+| FastAPI 5xx | `502 AI_PROVIDER_ERROR` |
+| Invalid FastAPI JSON/schema, missing Groq provenance, or disallowed mock output | `502 AI_PROVIDER_ERROR` |
 
 FastAPI stack traces, raw CV payloads, API keys, and tokens are not returned or logged by the adapter. Failed AIResult records are marked `FAILED` with a safe error message.
 
@@ -155,12 +164,13 @@ npm test
 npm run build
 ```
 
-The AI boundary tests mock HTTP and cover URL normalization, FastAPI validation errors, timeouts, ownership-before-call, explicit mock persistence, and translation persistence. They do not call Groq or Ollama.
+The AI boundary tests mock HTTP and cover URL normalization, FastAPI validation errors, fail-closed capability gating, connection failures, timeouts, 5xx responses, explicit local mock opt-in/rejection, and successful persistence. They do not call Groq or Ollama.
 
-Manual checks:
+Manual liveness/readiness checks:
 
 ```powershell
 Invoke-WebRequest http://localhost:8001/health
+Invoke-WebRequest http://localhost:8001/ready
 Invoke-WebRequest http://localhost:5000/api/health
 ```
 
@@ -186,10 +196,12 @@ From the outer project:
 
     docker compose -f docker-compose.dev.yml up -d mongo
 
-Run the independent FastAPI mock in another terminal and expose it on port 8001. Then run:
+Run the independent FastAPI mock in another terminal, expose it on port 8001,
+and configure the same local-only `AI_INTERNAL_API_KEY` in both processes. Then run:
 
     cd "D:\KI 7\cvbuddy\backend"
     $env:AI_SERVICE_URL="http://localhost:8001"
+    $env:AI_INTERNAL_API_KEY="<same local test value configured in FastAPI>"
     npm run test:ai:e2e
 
-The script connects to mongodb://127.0.0.1:27017/cvbuddy_ai_e2e by default, creates an isolated applicant account/profile/CV fixture, calls the Node AI service boundary, verifies the persisted AIResult, and removes all fixtures. It refuses non-local MongoDB URIs unless AI_E2E_ALLOW_REMOTE=true is explicitly set.
+The script explicitly enables local/test mock output, connects to mongodb://127.0.0.1:27017/cvbuddy_ai_e2e by default, creates an isolated applicant account/profile/CV fixture, calls the Node AI service boundary, verifies the persisted AIResult, and removes all fixtures. It refuses non-local MongoDB URIs unless AI_E2E_ALLOW_REMOTE=true is explicitly set.

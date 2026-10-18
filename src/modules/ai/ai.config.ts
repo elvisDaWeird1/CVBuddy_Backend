@@ -15,14 +15,15 @@ type AiTier = "free" | "subscription";
 
 type AiServiceConfig = {
   enabled: boolean;
+  allowMockOutput: boolean;
   baseUrl: string;
+  internalApiKey: string;
   timeoutMs: number;
   defaultIndustrySlug: string;
   supportedIndustrySlugs: string[];
   defaultVerticalSlug?: string;
   defaultCompanyModel: AiCompanyModel;
   defaultLanguage: AiLanguage;
-  defaultTier: AiTier;
 };
 
 const parseBoolean = (value: string | undefined, defaultValue: boolean) => {
@@ -60,22 +61,23 @@ const parseIndustrySlugs = (value: string | undefined) => {
 const getAiServiceConfig = (): AiServiceConfig => {
   const companyModel = process.env.AI_DEFAULT_COMPANY_MODEL;
   const language = process.env.AI_DEFAULT_LANGUAGE;
-  const tier = process.env.AI_DEFAULT_TIER;
   const supportedIndustrySlugs = parseIndustrySlugs(process.env.AI_SUPPORTED_INDUSTRY_SLUGS);
   const defaultIndustrySlug = (
     process.env.AI_DEFAULT_INDUSTRY_SLUG || "language"
   ).trim().toLowerCase();
+  const mockOutputRequested = parseBoolean(process.env.AI_SERVICE_ALLOW_MOCK_OUTPUT, false);
 
   return {
-    enabled: parseBoolean(process.env.AI_SERVICE_ENABLED, true),
+    enabled: parseBoolean(process.env.AI_SERVICE_ENABLED, false),
+    allowMockOutput: process.env.NODE_ENV !== "production" && mockOutputRequested,
     baseUrl: (process.env.AI_SERVICE_URL || "http://localhost:8001").trim().replace(/\/+$/, ""),
+    internalApiKey: (process.env.AI_INTERNAL_API_KEY || "").trim(),
     timeoutMs: parsePositiveInteger(process.env.AI_SERVICE_TIMEOUT_MS, 60_000),
     defaultIndustrySlug,
     supportedIndustrySlugs,
     defaultVerticalSlug: process.env.AI_DEFAULT_VERTICAL_SLUG?.trim() || undefined,
     defaultCompanyModel: companyModel === "startup_agency" ? "startup_agency" : "corporate",
-    defaultLanguage: language === "vi" || language === "en" ? language : "both",
-    defaultTier: tier === "subscription" ? "subscription" : "free"
+    defaultLanguage: language === "vi" || language === "en" ? language : "both"
   };
 };
 

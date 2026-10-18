@@ -147,42 +147,33 @@ test("multi-portfolio validators enforce title, visibility and Moment image", ()
   }).some((error) => error.field === "image"));
 });
 
-test("translate-and-score returns two completed result ids in mock mode", async () => {
+test("translate-and-score fails closed without creating results when AI is disabled", async () => {
   const originalEnabled = process.env.AI_SERVICE_ENABLED;
   const originalFindProfile = ApplicantProfile.findOne;
   const originalFindCv = CVDocument.findOne;
   const originalCreate = AIResult.create;
 
   process.env.AI_SERVICE_ENABLED = "false";
-  ApplicantProfile.findOne = async () => ({ _id: "profile-1" });
-  CVDocument.findOne = async () => ({
-    _id: { toString: () => "cv-1" },
-    extractedText: "Marketing campaign experience",
-    language: "VI"
-  });
-  let sequence = 0;
-  AIResult.create = async (payload) => {
-    sequence += 1;
-    const resultId = "result-" + sequence;
-    return {
-      ...payload,
-      _id: { toString: () => resultId },
-      accountId: { toString: () => "account-1" },
-      createdAt: new Date(),
-      save: async () => undefined
-    };
+  let profileRead = false;
+  let resultCreated = false;
+  ApplicantProfile.findOne = async () => {
+    profileRead = true;
+    return { _id: "profile-1" };
+  };
+  AIResult.create = async () => {
+    resultCreated = true;
   };
 
   try {
-    const workflow = await aiService.translateAndScore("account-1", "cv-1", {
-      industrySlug: "marketing",
-      targetRole: "Marketing Intern"
-    });
-    assert.equal(workflow.status, "COMPLETED");
-    assert.equal(workflow.steps.translation.status, "COMPLETED");
-    assert.equal(workflow.steps.scoring.status, "COMPLETED");
-    assert.equal(workflow.resultIds.translation, "result-1");
-    assert.equal(workflow.resultIds.scoring, "result-2");
+    await assert.rejects(
+      aiService.translateAndScore("account-1", "cv-1", {
+        industrySlug: "marketing",
+        targetRole: "Marketing Intern"
+      }),
+      (error) => error.statusCode === 503 && error.code === "AI_FEATURE_DISABLED"
+    );
+    assert.equal(profileRead, false);
+    assert.equal(resultCreated, false);
   } finally {
     if (originalEnabled === undefined) delete process.env.AI_SERVICE_ENABLED;
     else process.env.AI_SERVICE_ENABLED = originalEnabled;

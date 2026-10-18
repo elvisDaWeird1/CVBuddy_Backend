@@ -6,6 +6,15 @@ const isNonEmptyString = (value) => {
   return typeof value === "string" && value.trim().length > 0;
 };
 
+const SERVER_CONTROLLED_AI_FIELDS = [
+  "tier",
+  "subscription",
+  "plan",
+  "planCode",
+  "credits",
+  "creditCost"
+] as const;
+
 const validateOptionalString = (errors, body, field, maxLength = 5000) => {
   if (body[field] === undefined) return;
 
@@ -47,9 +56,14 @@ const cvAiRequestValidation = (req) => {
 
   validateOptionalEnum(errors, body, "companyModel", ["corporate", "startup_agency"]);
   validateOptionalEnum(errors, body, "language", ["vi", "en", "both"]);
-  validateOptionalEnum(errors, body, "tier", ["free", "subscription"]);
   validateOptionalEnum(errors, body, "extractionMode", ["local", "ai", "hybrid"]);
   validateOptionalEnum(errors, body, "translationMode", ["literal", "cv_native"]);
+
+  for (const field of SERVER_CONTROLLED_AI_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(body, field)) {
+      errors.push({ field, message: `${field} is controlled by the server` });
+    }
+  }
 
   if (body.strictIndustryMatch !== undefined && typeof body.strictIndustryMatch !== "boolean") {
     errors.push({ field: "strictIndustryMatch", message: "strictIndustryMatch must be a boolean" });
@@ -107,9 +121,22 @@ const aiResultsQueryValidation = (req) => {
   return errors;
 };
 
+const aiIdempotencyKeyValidation = (req) => {
+  const errors = [];
+  const value = req.get?.("Idempotency-Key") || req.headers?.["idempotency-key"];
+  if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(value.trim())) {
+    errors.push({
+      field: "Idempotency-Key",
+      message: "Idempotency-Key header must contain 8-128 safe characters"
+    });
+  }
+  return errors;
+};
+
 export {
   cvAiRequestValidation,
   careerTargetAiRequestValidation,
   aiResultIdValidation,
-  aiResultsQueryValidation
+  aiResultsQueryValidation,
+  aiIdempotencyKeyValidation
 };

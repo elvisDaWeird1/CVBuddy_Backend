@@ -207,6 +207,7 @@ Main files:
 - `src/modules/ai/ai.routes.ts`
 - `src/modules/ai/ai.controller.ts`
 - `src/modules/ai/ai.service.ts`
+- `src/modules/ai/clients/ai-service.client.ts`
 - `src/modules/ai/aiPrompt.service.ts`
 - `src/modules/ai/ai.validation.ts`
 - `src/modules/ai/aiResult.model.ts`
@@ -219,12 +220,12 @@ API routes:
 - `GET /api/ai/results/:id`
 
 Notes / limitations:
-- Real Gemini or other provider integration is not implemented. `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL` exist in `.env.example`, but code always returns mock output.
+- Node calls the independent FastAPI AI service when explicitly enabled. Disabled AI fails closed, and mock-marked upstream output requires an explicit non-production opt-in.
 - `JOB_RECOMMENDATION` exists as an enum/model value, but no job recommendation endpoint is implemented.
 - AI completion/failure notifications are planned in docs but not implemented in code.
 
 What still needs to be done:
-- Add real provider integration only when requested.
+- Configure and validate the independent FastAPI provider before enabling AI in staging.
 - Add AI job recommendation only if the related job/application scope is implemented.
 
 ## Portfolio and portfolio items
@@ -470,7 +471,7 @@ What still needs to be done:
 
 - Add a small automated test setup and cover auth/register/login/change-password first.
 - Implement real PDF/DOCX text extraction or document that AI endpoints require `cvText` until extraction exists.
-- Decide whether real AI provider integration is required now; current AI behavior is mock-only.
+- Validate the independent FastAPI provider and Node-to-FastAPI golden path before enabling AI in staging.
 - Implement company profile get/update APIs if company accounts need profile management beyond registration.
 - Implement planned job, application, notification, and feedback modules in separate phases if they remain MVP scope.
 - Keep `docs/api-contract.md`, `docs/database.md`, and `src/docs/swagger.paths.ts` aligned as routes and models change.
@@ -478,6 +479,6 @@ What still needs to be done:
 ## Questions / unclear points
 
 - `PROJECT_CONTEXT.md`, `docs/backend-mvp-plan.md`, `MVP_Database.txt`, `CVBuddy_RDS.docx`, and `Full_Database.txt` were not present in the repo during this inspection.
-- It is unclear whether Gemini integration is required immediately; code currently has only mock AI output despite AI environment variables.
+- The concrete upstream provider remains an independent FastAPI deployment concern; Node does not store provider secrets.
 - It is unclear whether the planned company profile, jobs, applications, notifications, and feedback modules are still in current MVP priority.
 - It is unclear whether logout should stay stateless or eventually revoke tokens.

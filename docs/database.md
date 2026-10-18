@@ -12,6 +12,9 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 - `CompanyProfile` -> `company_profiles`: accountId, companyName, industry, websiteUrl, logoUrl, description, address, contactEmail, contactPhone, createdAt, updatedAt.
 - `CVDocument` -> `cv_documents`: applicantProfileId, title, fileUrl, filePublicId, fileResourceType, fileType, fileSize, originalName, mimeType, size, language, extractedText, status, uploadedAt, createdAt, updatedAt.
 - `AIResult` -> `ai_results`: accountId, cvDocumentId, relatedJobId, aiType, status, inputText, resultText, score, errorMessage, errorCode, industrySlug, targetRole, workflowId, createdAt, completedAt.
+- `EntitlementGrant` -> `entitlement_grants`: accountId, sourceOrderId, planCode, startsAt, endsAt, creditsGranted, creditsConsumed, status, createdAt, updatedAt. A FREE grant is created lazily for an account's UTC calendar month using a deterministic source key; paid `PRO_30D` grants come from unique billing orders.
+- `AiUsage` -> `ai_usage`: accountId, entitlementGrantId, aiResultId, featureKey, credits, state (`RESERVED`, `CONSUMED`, `REFUNDED`), idempotencyKey, provider/model/token/cost metadata, createdAt, updatedAt.
+- `BillingOrder` -> `billing_orders`: accountId, provider, orderCode, paymentLinkId, planCode, server-owned amountVnd, status, idempotencyKey, checkoutUrl, providerReference, expiresAt, paidAt, createdAt, updatedAt. Only a verified provider webhook can move an order to `PAID` and issue a paid entitlement.
 - `LegacyPortfolio` -> `portfolios` (compatibility): applicantProfileId, title, introduction, visibility, coverImageUrl, createdAt, updatedAt.
 - `PortfolioItem` -> `portfolio_items`: portfolioId, title, description, imageUrl, eventName, eventRole, eventDate, location, visibility, createdFromMobile, createdAt, updatedAt.
 - `Portfolio` -> `portfolios`: applicantId, optional applicantProfileId compatibility link, title, description, coverImageUrl, coverImagePublicId, visibility, slug, publishedAt, plus legacy domain headline/about/desiredRole/isPublic/skills/socialLinks/featuredExperienceIds, createdAt, updatedAt.
@@ -26,6 +29,9 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 - `CompanyProfile.accountId` references `Account` and is unique.
 - `CVDocument.applicantProfileId` references `ApplicantProfile`.
 - `AIResult.accountId` references `Account`; `cvDocumentId` references `CVDocument` when present.
+- `EntitlementGrant.accountId` references `Account`; `sourceOrderId` is globally unique so one paid order cannot grant access twice. Early renewal starts after the latest non-revoked paid grant instead of overlapping it.
+- `AiUsage.accountId` references `Account`, `entitlementGrantId` references the balance charged, and optional `aiResultId` links the final or failed AI result. Reservation and balance update run in one MongoDB transaction.
+- `BillingOrder.accountId` references `Account`; `orderCode`, `paymentLinkId` (when present), and `{ accountId, idempotencyKey }` are unique. Payment webhook processing and paid-grant issuance run in one MongoDB transaction, requiring a replica set in production.
 - `Portfolio.applicantProfileId` references `ApplicantProfile` and is unique.
 - `PortfolioItem.portfolioId` references `Portfolio`.
 - Canonical Portfolio ownership uses `applicantId` referencing `Account._id`; one applicant owns exactly one Portfolio and ownership is always derived from JWT context.
@@ -58,3 +64,14 @@ The canonical `Portfolio.applicantId` unique index is sparse so compatibility `L
 - `portfolio_evidence`: `{ experienceId, createdAt }`.
 
 The existing MVP `Portfolio`/`PortfolioItem` contract is retained through compatibility routes, but every Applicant owns at most one Portfolio. No migration runs at application startup. The single-Portfolio migration refuses to modify duplicate owners so existing media can be resolved without silent data loss.
+
+## Monetization indexes (source only; not yet applied)
+
+- `entitlement_grants`: unique `{ sourceOrderId: 1 }`.
+- `entitlement_grants`: `{ accountId: 1, endsAt: -1, status: 1 }` for effective-entitlement lookup.
+- `entitlement_grants`: `{ accountId: 1, planCode: 1, startsAt: 1, endsAt: 1 }` for account history and overlap review.
+- `ai_usage`: unique `{ accountId: 1, idempotencyKey: 1 }`.
+- `ai_usage`: `{ accountId: 1, createdAt: -1, state: 1 }`, `{ entitlementGrantId: 1, state: 1 }`, and sparse `{ aiResultId: 1 }`.
+- `billing_orders`: unique `{ orderCode: 1 }`, sparse unique `{ paymentLinkId: 1 }`, unique `{ accountId: 1, idempotencyKey: 1 }`, `{ accountId: 1, status: 1, createdAt: -1 }`, and `{ status: 1, expiresAt: 1 }`.
+
+These indexes are schema definitions only until the deployment owner runs an approved database preflight and apply step. No index or data migration is performed automatically by this change.
