@@ -10,6 +10,7 @@ const {
   createCheckout,
   expirePendingBillingOrders,
   finalizeVerifiedPayment,
+  getMyBilling,
   processPayOSWebhook,
   reconcileBillingOrder,
   reconciliationBackoffMs
@@ -95,6 +96,41 @@ test("checkout keeps price server-owned and reuses its idempotency key", async (
   assert.equal(first.order.amountVnd, 79000);
   assert.equal(first.order.id, second.order.id);
   assert.equal(providerCalls, 1);
+});
+
+test("billing status exposes a server-owned catalog while checkout remains disabled", async () => {
+  const accountId = new mongoose.Types.ObjectId();
+  const previous = process.env.BILLING_ENABLED;
+  process.env.BILLING_ENABLED = "false";
+  try {
+    const billing = await getMyBilling(accountId, new Date("2026-10-18T00:00:00.000Z"));
+    assert.equal(billing.enabled, false);
+    assert.equal(billing.catalogVersion, "2026-10-17-draft");
+    assert.deepEqual(billing.plans.PRO_30D, {
+      code: "PRO_30D",
+      durationDays: 30,
+      creditsGranted: 60,
+      priceVnd: 79000
+    });
+    assert.deepEqual(billing.featureCosts, {
+      CV_EVALUATION: 2,
+      CV_TRANSLATION: 2,
+      TRANSLATE_AND_EVALUATE: 4,
+      TARGETED_REVIEW: 3
+    });
+    assert.equal(billing.orders.length, 0);
+    await assert.rejects(
+      () => createCheckout({
+        accountId,
+        planCode: "PRO_30D",
+        idempotencyKey: "billing-disabled-catalog-001",
+        adapter
+      }),
+      (error) => error.code === "BILLING_DISABLED"
+    );
+  } finally {
+    process.env.BILLING_ENABLED = previous;
+  }
 });
 
 test("concurrent checkout requests reuse one order and one provider checkout", async () => {

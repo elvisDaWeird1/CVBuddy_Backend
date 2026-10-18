@@ -1,6 +1,11 @@
 import mongoose, { Types } from "mongoose";
 
-import { PLAN_CATALOG, PLAN_CODES } from "../../config/planCatalog";
+import {
+  AI_CREDIT_COSTS,
+  PLAN_CATALOG,
+  PLAN_CATALOG_VERSION,
+  PLAN_CODES
+} from "../../config/planCatalog";
 import ApiError from "../../utils/apiError";
 import { getEffectiveEntitlement, grantPro30Days } from "../entitlements/entitlement.service";
 import BillingOrder, { BILLING_ORDER_STATUSES } from "./billingOrder.model";
@@ -52,6 +57,15 @@ const serializeBillingOrder = (order) => ({
   reconciliationAttempts: order.reconciliationAttempts || 0,
   createdAt: order.createdAt,
   updatedAt: order.updatedAt
+});
+
+const getBillingCatalogProjection = () => ({
+  catalogVersion: PLAN_CATALOG_VERSION,
+  plans: {
+    [PLAN_CODES.FREE]: { ...PLAN_CATALOG[PLAN_CODES.FREE] },
+    [PLAN_CODES.PRO_30D]: { ...PLAN_CATALOG[PLAN_CODES.PRO_30D] }
+  },
+  featureCosts: { ...AI_CREDIT_COSTS }
 });
 
 const expireBillingOrder = async (orderId, now = new Date(), reason = "CHECKOUT_EXPIRED") =>
@@ -183,6 +197,8 @@ const getMyBilling = async (accountId, now = new Date()) => {
     BillingOrder.find({ accountId }).sort({ createdAt: -1 }).limit(20)
   ]);
   return {
+    enabled: getBillingConfig().enabled,
+    ...getBillingCatalogProjection(),
     entitlement,
     orders: orders.map(serializeBillingOrder)
   };
@@ -410,6 +426,7 @@ export {
   finalizeVerifiedPayment,
   getMyBilling,
   getMyBillingOrder,
+  getBillingCatalogProjection,
   processPayOSWebhook,
   reconcileBillingOrder,
   reconcileDueBillingOrders,
