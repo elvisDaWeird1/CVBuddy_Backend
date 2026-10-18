@@ -250,6 +250,25 @@ test("AI client rejects a successful response that does not prove Groq provenanc
   );
 });
 
+test("production AI client rejects Groq responses without the required metadata contract", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    await assert.rejects(
+      new AiServiceClient({
+        fetchImpl: async () => new Response(JSON.stringify({
+          ...analyzeResponse,
+          meta: { source: "groq", provider: "groq", model: "test" }
+        }), { status: 200 })
+      }).analyzeCv(analyzeRequest),
+      (error) => error.kind === "invalid_response" && /supported production metadata/.test(error.message)
+    );
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
 test("AI service connection failure marks AIResult failed", async () => {
   await runTranslationFailureCase({
     fetchImpl: async () => {
