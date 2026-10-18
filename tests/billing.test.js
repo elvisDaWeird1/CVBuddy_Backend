@@ -14,6 +14,7 @@ const {
   getMyBilling,
   processPayOSWebhook,
   reconcileBillingOrder,
+  reconcileDueBillingOrders,
   reconciliationBackoffMs,
   startBillingReconciliation
 } = require("../src/modules/billing/billing.service");
@@ -477,11 +478,25 @@ test("reconciliation reclaims an expired lease and worker cleanup clears its int
 
 test("provider cancelled reconciliation transitions safely without an entitlement", async () => {
   const accountId = new mongoose.Types.ObjectId();
-  const checkout = await createCheckout({ accountId, planCode: "PRO_30D", idempotencyKey: "billing-reconcile-cancelled-001", adapter });
+  const now = new Date("2026-10-19T00:00:00.000Z");
+  const checkout = await createCheckout({ accountId, planCode: "PRO_30D", idempotencyKey: "billing-reconcile-cancelled-001", adapter, now });
   const stored = await BillingOrder.findById(checkout.order.id);
-  const cancelled = { ...adapter, getPaymentStatus: async () => ({ providerOrderCode: stored.orderCode, paymentLinkId: stored.paymentLinkId, amount: stored.amountVnd, currency: "VND", status: "CANCELLED" }) };
-  const result = await reconcileBillingOrder({ orderId: stored._id, adapter: cancelled, force: true });
+  let providerReads = 0;
+  const cancelled = {
+    ...adapter,
+    getPaymentStatus: async () => {
+      providerReads += 1;
+      return { providerOrderCode: stored.orderCode, paymentLinkId: stored.paymentLinkId, amount: stored.amountVnd, currency: "VND", status: "CANCELLED" };
+    }
+  };
+  const result = await reconcileBillingOrder({ orderId: stored._id, adapter: cancelled, now, force: true });
   assert.equal(result.outcome, "CANCELLED");
-  assert.equal((await BillingOrder.findById(stored._id)).status, "CANCELLED");
+  const refreshed = await BillingOrder.findById(stored._id);
+  assert.equal(refreshed.status, "CANCELLED");
+  assert.equal(refreshed.reconciliationLeaseUntil, undefined);
+  assert.equal(refreshed.nextReconciliationAt, undefined);
+  const later = await reconcileDueBillingOrders({ adapter: cancelled, now: new Date(now.getTime() + 120_001) });
+  assert.equal(later.scanned, 0);
+  assert.equal(providerReads, 1);
   assert.equal(await EntitlementGrant.countDocuments({ accountId }), 0);
 });

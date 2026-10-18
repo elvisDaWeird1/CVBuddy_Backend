@@ -382,7 +382,14 @@ const reconcileBillingOrder = async ({ orderId, adapter, now = new Date(), force
         payment.status === "EXPIRED" ? BILLING_ORDER_STATUSES.EXPIRED : BILLING_ORDER_STATUSES.FAILED;
       await BillingOrder.updateOne(
         { _id: claimed._id, reconciliationLeaseUntil: { $gt: claimedAt }, status: { $ne: BILLING_ORDER_STATUSES.PAID } },
-        { $set: { status, lastReconciledAt: now, lastReconciliationErrorCode: undefined, reconciliationLeaseUntil: undefined, nextReconciliationAt: undefined } }
+        {
+          $set: { status, lastReconciledAt: now },
+          $unset: {
+            lastReconciliationErrorCode: 1,
+            reconciliationLeaseUntil: 1,
+            nextReconciliationAt: 1
+          }
+        }
       );
       return { claimed: true, outcome: status };
     }
