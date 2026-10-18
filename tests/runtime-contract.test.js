@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const { getReadiness, validateProductionRuntimeConfig } = require("../src/config/runtime");
+const { classifyMongoTransactionTopology } = require("../src/config/mongoTransactions");
 
 const withEnvironment = async (values, callback) => {
   const previous = Object.fromEntries(Object.keys(values).map((key) => [key, process.env[key]]));
@@ -80,6 +81,8 @@ test("production runtime validation accepts complete fail-closed AI configuratio
     AI_SERVICE_ENABLED: "true",
     AI_SERVICE_URL: "https://ai.example.com",
     AI_SERVICE_TIMEOUT_MS: "60000",
+    AI_USAGE_RESERVATION_TTL_MS: "600000",
+    AI_USAGE_RECONCILE_INTERVAL_MS: "60000",
     AI_INTERNAL_API_KEY: "test-only-internal-key-with-32-characters"
   }, async () => {
     assert.doesNotThrow(validateProductionRuntimeConfig);
@@ -136,10 +139,28 @@ test("readiness exposes Mongo, Cloudinary, and conditional AI checks without con
     AI_SERVICE_ENABLED: "false",
     AI_SERVICE_URL: undefined
   }, async () => {
-    const readiness = getReadiness();
+    const readiness = await getReadiness();
     assert.equal(readiness.aiEnabled, false);
     assert.deepEqual(readiness.checks.ai, { enabled: false, ready: null });
     assert.equal(readiness.checks.cloudinary, false);
     assert.equal(readiness.ready, false);
+  });
+});
+
+test("transaction topology accepts replica sets and mongos but rejects standalone MongoDB", () => {
+  assert.deepEqual(classifyMongoTransactionTopology({ setName: "rs0" }), {
+    required: false,
+    supported: true,
+    topology: "replica_set"
+  });
+  assert.deepEqual(classifyMongoTransactionTopology({ msg: "isdbgrid" }), {
+    required: false,
+    supported: true,
+    topology: "mongos"
+  });
+  assert.deepEqual(classifyMongoTransactionTopology({ isWritablePrimary: true }), {
+    required: false,
+    supported: false,
+    topology: "standalone"
   });
 });
