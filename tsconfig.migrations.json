@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": [
+    "scripts/rollout-monetization-indexes.ts",
+    "src/modules/billing/monetizationIndexRollout.ts",
+    "src/modules/billing/monetizationIndexRolloutRunner.ts"
+  ]
+}
