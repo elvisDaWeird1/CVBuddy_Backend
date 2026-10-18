@@ -7,6 +7,7 @@ import { AI_USAGE_STATES } from "../usage/aiUsage.model";
 import {
   attachAiResultToReservation,
   consumeAiUsage,
+  createRequestFingerprint,
   refundAiUsage,
   reserveAiUsage
 } from "../usage/usage.service";
@@ -87,19 +88,33 @@ const executeMeteredAction = async ({
   req;
   featureKey: AiFeatureKey;
   workflow?: boolean;
-  action: () => Promise<MeteredResult>;
+  action: (onResultCreated: (aiResultId: string) => Promise<void>) => Promise<MeteredResult>;
 }) => {
   requireAiEnabled();
   const accountId = req.user._id;
   const idempotencyKey = req.get("Idempotency-Key").trim();
-  const reservation = await reserveAiUsage({ accountId, featureKey, idempotencyKey });
+  const requestFingerprint = createRequestFingerprint({
+    version: "ai-usage-v1",
+    featureKey,
+    cvId: req.params.cvId,
+    payload: req.body || {}
+  });
+  const reservation = await reserveAiUsage({
+    accountId,
+    featureKey,
+    idempotencyKey,
+    requestFingerprint
+  });
 
   if (!reservation.created) {
     return loadIdempotentResult(accountId, reservation.usage, workflow);
   }
 
   try {
-    const value = await action();
+    const onResultCreated = async (aiResultId: string) => {
+      await attachAiResultToReservation({ accountId, idempotencyKey, aiResultId });
+    };
+    const value = await action(onResultCreated);
     const aiResultId = usageResultId(value);
     if (!aiResultId) {
       throw new ApiError(502, "AI result identifier is missing", [], "AI_INVALID_PROVIDER_RESPONSE");
@@ -138,7 +153,7 @@ const generateFeedback = asyncHandler(async (req, res) => {
   const aiResult = await executeMeteredAction({
     req,
     featureKey: AI_FEATURE_KEYS.CV_EVALUATION,
-    action: () => aiService.generateFeedback(req.user._id, req.params.cvId, req.body || {}, res.locals.requestId)
+    action: (onResultCreated) => aiService.generateFeedback(req.user._id, req.params.cvId, req.body || {}, res.locals.requestId, onResultCreated)
   });
   return successResponse(res, "AI feedback generated successfully", { aiResult });
 });
@@ -147,7 +162,7 @@ const reviewCv = asyncHandler(async (req, res) => {
   const aiResult = await executeMeteredAction({
     req,
     featureKey: AI_FEATURE_KEYS.TARGETED_REVIEW,
-    action: () => aiService.generateFeedback(req.user._id, req.params.cvId, req.body, res.locals.requestId)
+    action: (onResultCreated) => aiService.generateFeedback(req.user._id, req.params.cvId, req.body, res.locals.requestId, onResultCreated)
   });
   return successResponse(res, "CV review generated successfully", { aiResult });
 });
@@ -156,7 +171,7 @@ const generateScore = asyncHandler(async (req, res) => {
   const aiResult = await executeMeteredAction({
     req,
     featureKey: AI_FEATURE_KEYS.CV_EVALUATION,
-    action: () => aiService.generateScore(req.user._id, req.params.cvId, req.body || {}, res.locals.requestId)
+    action: (onResultCreated) => aiService.generateScore(req.user._id, req.params.cvId, req.body || {}, res.locals.requestId, onResultCreated)
   });
   return successResponse(res, "CV score generated successfully", { aiResult });
 });
@@ -165,7 +180,7 @@ const translateToEnglish = asyncHandler(async (req, res) => {
   const aiResult = await executeMeteredAction({
     req,
     featureKey: AI_FEATURE_KEYS.CV_TRANSLATION,
-    action: () => aiService.translateToEnglish(req.user._id, req.params.cvId, req.body || {}, res.locals.requestId)
+    action: (onResultCreated) => aiService.translateToEnglish(req.user._id, req.params.cvId, req.body || {}, res.locals.requestId, onResultCreated)
   });
   return successResponse(res, "CV translated to English successfully", { aiResult });
 });
@@ -175,7 +190,7 @@ const translateAndScore = asyncHandler(async (req, res) => {
     req,
     featureKey: AI_FEATURE_KEYS.TRANSLATE_AND_EVALUATE,
     workflow: true,
-    action: () => aiService.translateAndScore(req.user._id, req.params.cvId, req.body, res.locals.requestId)
+    action: (onResultCreated) => aiService.translateAndScore(req.user._id, req.params.cvId, req.body, res.locals.requestId, onResultCreated)
   });
   return successResponse(res, "Translate and score workflow completed", { workflow });
 });

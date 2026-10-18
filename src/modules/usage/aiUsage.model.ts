@@ -24,6 +24,11 @@ export interface IAiUsage extends Document {
   credits: number;
   state: AiUsageState;
   idempotencyKey: string;
+  requestFingerprint?: string;
+  reservationExpiresAt?: Date;
+  reconciledAt?: Date;
+  reconciliationReason?: string;
+  reconciliationOutcome?: "CONSUMED" | "REFUNDED";
   provider?: string;
   providerModel?: string;
   inputTokens?: number;
@@ -80,6 +85,22 @@ const AiUsageSchema = new mongoose.Schema<IAiUsage>(
       minlength: 8,
       maxlength: 128
     },
+    requestFingerprint: {
+      // New writes are enforced by usage.service. Keeping this optional permits
+      // recovery of pre-rollout reservations before their controlled backfill.
+      type: String,
+      trim: true,
+      minlength: 64,
+      maxlength: 64
+    },
+    reservationExpiresAt: {
+      // New writes always have a lease; legacy reservations use createdAt during
+      // the one-time recovery window.
+      type: Date
+    },
+    reconciledAt: { type: Date },
+    reconciliationReason: { type: String, trim: true, maxlength: 100 },
+    reconciliationOutcome: { type: String, enum: ["CONSUMED", "REFUNDED"] },
     provider: { type: String, trim: true },
     providerModel: { type: String, trim: true },
     inputTokens: { type: Number, min: 0 },
@@ -100,6 +121,7 @@ AiUsageSchema.index({ accountId: 1, idempotencyKey: 1 }, { unique: true });
 AiUsageSchema.index({ accountId: 1, createdAt: -1, state: 1 });
 AiUsageSchema.index({ entitlementGrantId: 1, state: 1 });
 AiUsageSchema.index({ aiResultId: 1 }, { sparse: true });
+AiUsageSchema.index({ state: 1, reservationExpiresAt: 1 });
 
 const AiUsage = mongoose.model<IAiUsage>("AiUsage", AiUsageSchema);
 
