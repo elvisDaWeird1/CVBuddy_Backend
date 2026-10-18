@@ -66,7 +66,7 @@ type FastApiAnalyzeResponse = {
   company_model_feedback: string;
   confidence: number;
   disclaimer: string;
-  meta: Record<string, string>;
+  meta: Record<string, unknown>;
 };
 
 type FastApiTranslateRequest = {
@@ -80,7 +80,7 @@ type FastApiTranslateRequest = {
 type FastApiTranslateResponse = {
   translated: string;
   notes: string[];
-  meta: Record<string, string>;
+  meta: Record<string, unknown>;
 };
 
 type FastApiPortfolioSuggestRequest = {
@@ -107,7 +107,7 @@ type FastApiPortfolioSuggestResponse = {
   action_verbs: string[];
   industry_keywords: string[];
   confidence: number;
-  meta: Record<string, string>;
+  meta: Record<string, unknown>;
 };
 
 type LocalCvFile = {
@@ -160,7 +160,18 @@ const hasGroqMetadata = (payload: unknown) => {
   return payload.meta.source === "groq" && payload.meta.provider === "groq";
 };
 
-const isNumber = (value: unknown) => typeof value === "number" && Number.isFinite(value);
+const hasSupportedProductionMetadata = (payload: unknown) => {
+  if (!isRecord(payload) || !isRecord(payload.meta)) return false;
+  const meta = payload.meta;
+  return hasGroqMetadata(payload)
+    && typeof meta.model === "string" && meta.model.trim().length > 0
+    && meta.schemaVersion === "ai-response-v1"
+    && typeof meta.promptVersion === "string" && meta.promptVersion.trim().length > 0
+    && isNumber(meta.latencyMs) && meta.latencyMs >= 0;
+};
+
+const isNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
 
 const parseErrorItems = (payload: unknown): ErrorItem[] => {
   if (!isRecord(payload) || !Array.isArray(payload.detail)) {
@@ -335,6 +346,12 @@ class AiServiceClient {
         throw new AiServiceError(
           "invalid_response",
           "AI service response did not identify Groq as its source and provider"
+        );
+      }
+      if (process.env.NODE_ENV === "production" && requireGroqMetadata && !hasSupportedProductionMetadata(validated)) {
+        throw new AiServiceError(
+          "invalid_response",
+          "AI service response did not provide supported production metadata"
         );
       }
       return validated;
