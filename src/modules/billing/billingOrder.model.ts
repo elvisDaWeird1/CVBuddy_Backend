@@ -29,6 +29,11 @@ export interface IBillingOrder extends Document {
   lastReconciledAt?: Date;
   reconciliationAttempts: number;
   lastReconciliationErrorCode?: string;
+  nextReconciliationAt?: Date;
+  reconciliationLeaseUntil?: Date;
+  previousSettlementStatus?: string;
+  lateSettlementAt?: Date;
+  settlementSource?: "WEBHOOK" | "RECONCILIATION";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,7 +60,12 @@ const BillingOrderSchema = new mongoose.Schema<IBillingOrder>(
     paidAt: { type: Date },
     lastReconciledAt: { type: Date },
     reconciliationAttempts: { type: Number, default: 0, min: 0, required: true },
-    lastReconciliationErrorCode: { type: String, trim: true, maxlength: 100 }
+    lastReconciliationErrorCode: { type: String, trim: true, maxlength: 100 },
+    nextReconciliationAt: { type: Date },
+    reconciliationLeaseUntil: { type: Date },
+    previousSettlementStatus: { type: String, enum: BILLING_ORDER_STATUS_VALUES },
+    lateSettlementAt: { type: Date },
+    settlementSource: { type: String, enum: ["WEBHOOK", "RECONCILIATION"] }
   },
   { collection: "billing_orders", timestamps: true }
 );
@@ -65,6 +75,7 @@ BillingOrderSchema.index({ paymentLinkId: 1 }, { unique: true, sparse: true });
 BillingOrderSchema.index({ accountId: 1, idempotencyKey: 1 }, { unique: true });
 BillingOrderSchema.index({ accountId: 1, status: 1, createdAt: -1 });
 BillingOrderSchema.index({ status: 1, expiresAt: 1 });
+BillingOrderSchema.index({ status: 1, nextReconciliationAt: 1 });
 
 const BillingOrder = mongoose.model<IBillingOrder>("BillingOrder", BillingOrderSchema);
 
