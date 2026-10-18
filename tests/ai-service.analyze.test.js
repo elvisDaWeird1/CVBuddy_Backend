@@ -22,7 +22,7 @@ test("AI client accepts the FastAPI analyze response schema", async () => {
         company_model_feedback: "Good fit",
         confidence: 0.9,
         disclaimer: "AI-assisted feedback only",
-        meta: { source: "mock", model: "test" }
+        meta: { source: "groq", provider: "groq", model: "test" }
       }), { status: 200 });
     }
   });
@@ -45,5 +45,6 @@ test("AI client accepts the FastAPI analyze response schema", async () => {
   });
 
   assert.equal(result.overall_score, 84);
-  assert.equal(result.meta.source, "mock");
+  assert.equal(result.meta.source, "groq");
+  assert.equal(result.meta.provider, "groq");
 });

@@ -16,6 +16,8 @@ import portfolioCollectionPublicRoutes from "./modules/portfolios/portfolioColle
 import mobileRoutes from "./modules/mobile/mobile.routes";
 import uploadRoutes from "./modules/uploads/upload.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import usageRoutes from "./modules/usage/usage.routes";
+import billingRoutes from "./modules/billing/billing.routes";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 import { generalRateLimit, uploadRateLimit } from "./middlewares/rateLimit.middleware";
 import { accessLogger, requestContext } from "./middlewares/requestContext.middleware";
@@ -62,7 +64,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID", "Idempotency-Key"],
   exposedHeaders: ["X-Request-ID"]
 };
 
@@ -92,6 +94,8 @@ app.use("/api/applicant-profile", uploadRateLimit, applicantProfileRoutes);
 app.use("/api/cvs", cvRoutes);
 app.use("/api/uploads", uploadRateLimit, uploadRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/usage", usageRoutes);
+app.use("/api/billing", billingRoutes);
 app.use("/api/portfolio", uploadRateLimit, portfolioDomainRoutes);
 app.use("/api/public/portfolios", portfolioCollectionPublicRoutes);
 app.use("/api/portfolios", uploadRateLimit, legacyPortfolioRoutes);

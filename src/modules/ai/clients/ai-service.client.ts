@@ -66,7 +66,7 @@ type FastApiAnalyzeResponse = {
   company_model_feedback: string;
   confidence: number;
   disclaimer: string;
-  meta: Record<string, string>;
+  meta: Record<string, unknown>;
 };
 
 type FastApiTranslateRequest = {
@@ -80,7 +80,7 @@ type FastApiTranslateRequest = {
 type FastApiTranslateResponse = {
   translated: string;
   notes: string[];
-  meta: Record<string, string>;
+  meta: Record<string, unknown>;
 };
 
 type FastApiPortfolioSuggestRequest = {
@@ -107,7 +107,7 @@ type FastApiPortfolioSuggestResponse = {
   action_verbs: string[];
   industry_keywords: string[];
   confidence: number;
-  meta: Record<string, string>;
+  meta: Record<string, unknown>;
 };
 
 type LocalCvFile = {
@@ -121,17 +121,19 @@ type AiServiceErrorKind = "unavailable" | "timeout" | "http" | "invalid_response
 class AiServiceError extends Error {
   readonly kind: AiServiceErrorKind;
   readonly statusCode?: number;
+  readonly upstreamCode?: string;
   readonly errors: ErrorItem[];
 
   constructor(
     kind: AiServiceErrorKind,
     message: string,
-    options: { statusCode?: number; errors?: ErrorItem[] } = {}
+    options: { statusCode?: number; upstreamCode?: string; errors?: ErrorItem[] } = {}
   ) {
     super(message);
     this.name = "AiServiceError";
     this.kind = kind;
     this.statusCode = options.statusCode;
+    this.upstreamCode = options.upstreamCode;
     this.errors = options.errors || [];
   }
 }
@@ -142,7 +144,34 @@ const isAiServiceError = (error: unknown): error is AiServiceError =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-const isNumber = (value: unknown) => typeof value === "number" && Number.isFinite(value);
+const isMockMarker = (value: unknown) => {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "mock" || normalized.startsWith("mock-") || normalized.startsWith("mock_");
+};
+
+const isMockResponse = (payload: unknown) => {
+  if (!isRecord(payload) || !isRecord(payload.meta)) return false;
+  return [payload.meta.source, payload.meta.provider, payload.meta.model].some(isMockMarker);
+};
+
+const hasGroqMetadata = (payload: unknown) => {
+  if (!isRecord(payload) || !isRecord(payload.meta)) return false;
+  return payload.meta.source === "groq" && payload.meta.provider === "groq";
+};
+
+const hasSupportedProductionMetadata = (payload: unknown) => {
+  if (!isRecord(payload) || !isRecord(payload.meta)) return false;
+  const meta = payload.meta;
+  return hasGroqMetadata(payload)
+    && typeof meta.model === "string" && meta.model.trim().length > 0
+    && meta.schemaVersion === "ai-response-v1"
+    && typeof meta.promptVersion === "string" && meta.promptVersion.trim().length > 0
+    && isNumber(meta.latencyMs) && meta.latencyMs >= 0;
+};
+
+const isNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
 
 const parseErrorItems = (payload: unknown): ErrorItem[] => {
   if (!isRecord(payload) || !Array.isArray(payload.detail)) {
@@ -164,6 +193,17 @@ const parseErrorItems = (payload: unknown): ErrorItem[] => {
 
     return [{ field: location, message: item.msg }];
   });
+};
+
+const parseErrorDetail = (payload: unknown) => {
+  if (!isRecord(payload) || !isRecord(payload.detail)) {
+    return {};
+  }
+
+  return {
+    code: typeof payload.detail.code === "string" ? payload.detail.code : undefined,
+    message: typeof payload.detail.message === "string" ? payload.detail.message : undefined
+  };
 };
 
 const parseJsonBody = (raw: string): unknown => {
@@ -237,50 +277,93 @@ const validatePortfolioResponse = (payload: unknown): FastApiPortfolioSuggestRes
 class AiServiceClient {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
+  private readonly allowMockOutput: boolean;
+  private readonly internalApiKey: string;
+  private readonly requestId?: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(options: Partial<Pick<AiServiceConfig, "baseUrl" | "timeoutMs">> & { fetchImpl?: typeof fetch } = {}) {
+  constructor(options: Partial<Pick<AiServiceConfig, "baseUrl" | "timeoutMs" | "allowMockOutput" | "internalApiKey">> & {
+    fetchImpl?: typeof fetch;
+    requestId?: string;
+  } = {}) {
     this.baseUrl = (options.baseUrl || "http://localhost:8001").replace(/\/+$/, "");
     this.timeoutMs = options.timeoutMs || 60_000;
+    this.allowMockOutput = options.allowMockOutput === true;
+    this.internalApiKey = options.internalApiKey || "";
+    this.requestId = options.requestId;
     this.fetchImpl = options.fetchImpl || fetch;
   }
 
   private async request<T>(
     path: string,
     options: RequestInit,
-    validate: (payload: unknown) => T
+    validate: (payload: unknown) => T,
+    requireGroqMetadata = false
   ): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     const headers = new Headers(options.headers);
     headers.set("Accept", "application/json");
+    if (this.internalApiKey) {
+      headers.set("X-AI-Internal-Key", this.internalApiKey);
+    }
+    if (this.requestId) {
+      headers.set("X-Request-ID", this.requestId);
+    }
 
     try {
       const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
         ...options,
         headers,
+        redirect: "error",
         signal: controller.signal
       });
       const payload = parseJsonBody(await response.text());
 
       if (!response.ok) {
         const statusCode = response.status;
+        const detail = parseErrorDetail(payload);
         const message = statusCode === 429
           ? "AI service quota exceeded"
-          : statusCode >= 500
-            ? "AI service returned an internal error"
-            : "AI service rejected the request";
+          : statusCode === 401 || statusCode === 403
+            ? "AI service authentication failed"
+            : statusCode >= 500
+              ? "AI service returned an internal error"
+              : detail.message || "AI service rejected the request";
 
         throw new AiServiceError("http", message, {
           statusCode,
+          upstreamCode: detail.code,
           errors: statusCode >= 500 ? [] : parseErrorItems(payload)
         });
       }
 
-      return validate(payload);
+      const validated = validate(payload);
+      if (!this.allowMockOutput && isMockResponse(validated)) {
+        throw new AiServiceError("invalid_response", "AI service returned mock output");
+      }
+      if (!this.allowMockOutput && requireGroqMetadata && !hasGroqMetadata(validated)) {
+        throw new AiServiceError(
+          "invalid_response",
+          "AI service response did not identify Groq as its source and provider"
+        );
+      }
+      if (process.env.NODE_ENV === "production" && requireGroqMetadata && !hasSupportedProductionMetadata(validated)) {
+        throw new AiServiceError(
+          "invalid_response",
+          "AI service response did not provide supported production metadata"
+        );
+      }
+      return validated;
     } catch (error) {
       if (isAiServiceError(error)) {
-        console.warn("AI service request failed", { path, kind: error.kind, statusCode: error.statusCode });
+        console.warn("AI service request failed", {
+          path,
+          kind: error.kind,
+          statusCode: error.statusCode,
+          upstreamCode: error.upstreamCode,
+          requestId: this.requestId
+        });
         throw error;
       }
 
@@ -297,13 +380,14 @@ class AiServiceClient {
   private async requestJson<T>(
     path: string,
     body: unknown,
-    validate: (payload: unknown) => T
+    validate: (payload: unknown) => T,
+    requireGroqMetadata = false
   ) {
     return this.request(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
-    }, validate);
+    }, validate, requireGroqMetadata);
   }
 
   async health() {
@@ -313,6 +397,16 @@ class AiServiceClient {
       }
 
       return payload as { status: string; service?: string; env?: string };
+    });
+  }
+
+  async readiness() {
+    return this.request("/ready", { method: "GET" }, (payload) => {
+      if (!isRecord(payload) || typeof payload.ready !== "boolean") {
+        throw new AiServiceError("invalid_response", "AI service returned an invalid readiness response");
+      }
+
+      return payload as { ready: boolean; provider?: string; checks?: Record<string, boolean> };
     });
   }
 
@@ -343,23 +437,23 @@ class AiServiceClient {
     return this.request(`/v1/cv/extract-and-analyze?${params.toString()}`, {
       method: "POST",
       body: form
-    }, validateAnalyzeResponse);
+    }, validateAnalyzeResponse, true);
   }
 
   analyzeCv(body: FastApiAnalyzeRequest) {
-    return this.requestJson("/v1/cv/analyze", body, validateAnalyzeResponse);
+    return this.requestJson("/v1/cv/analyze", body, validateAnalyzeResponse, true);
   }
 
   translate(body: FastApiTranslateRequest) {
-    return this.requestJson("/v1/translate", body, validateTranslateResponse);
+    return this.requestJson("/v1/translate", body, validateTranslateResponse, true);
   }
 
   suggestPortfolio(body: FastApiPortfolioSuggestRequest) {
-    return this.requestJson("/v1/portfolio/suggest", body, validatePortfolioResponse);
+    return this.requestJson("/v1/portfolio/suggest", body, validatePortfolioResponse, true);
   }
 
   suggestPortfolioFromImage(body: FastApiPortfolioFromImageRequest) {
-    return this.requestJson("/v1/portfolio/from-image", body, validatePortfolioResponse);
+    return this.requestJson("/v1/portfolio/from-image", body, validatePortfolioResponse, true);
   }
 }
 

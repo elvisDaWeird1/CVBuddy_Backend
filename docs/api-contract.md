@@ -149,8 +149,14 @@ The complete request/response examples, error codes, migration requirement and f
 ## AI service integration
 
 - The existing `/api/ai/cvs/:cvId/feedback`, `/score`, and `/translate-to-english` routes keep their public paths and response wrapper.
-- Their optional request body may include `industrySlug`, `verticalSlug`, `companyModel`, `language`, `tier`, `jdExtract`, `llmModel`, `extractionMode`, and `strictIndustryMatch`; legacy `targetRole` and `cvText` remain accepted.
+- Their optional request body may include `industrySlug`, `verticalSlug`, `companyModel`, `language`, `jdExtract`, `llmModel`, `extractionMode`, and `strictIndustryMatch`; legacy `targetRole` and `cvText` remain accepted. `tier`, plan, credits, and credit cost are server-controlled; requests that try to set them are rejected with `400`.
 - The Node backend calls the independent FastAPI service configured by `AI_SERVICE_URL`; clients never call FastAPI directly.
+- Node authenticates to canonical FastAPI `/v1/*` endpoints with a runtime-only internal key and propagates `X-Request-ID`; `AI_SERVICE_URL` is the service root and does not contain `/v1`.
+- When `AI_SERVICE_ENABLED=false`, AI execution routes return HTTP `503` with code `AI_FEATURE_DISABLED`; result history/detail routes remain readable.
+- Upstream transport errors use `AI_SERVICE_UNAVAILABLE` (`503`), `AI_SERVICE_AUTH_FAILED` (`503`), `AI_SERVICE_TIMEOUT` (`504`), `AI_PROVIDER_TIMEOUT` (`504`), and `AI_PROVIDER_ERROR` (`502`). No provider failure or disabled capability falls back to a successful mock result.
+- A completed provider response must identify both `meta.source=groq` and `meta.provider=groq`; otherwise it is rejected and stored as `FAILED` when a result record already exists.
+- Every execution request requires `Idempotency-Key`. Node binds it to a SHA-256 fingerprint of the action, CV identifier, and normalized request semantics. Reuse with different semantics returns `409 IDEMPOTENCY_PAYLOAD_MISMATCH`; reuse after a confirmed refund returns `409 IDEMPOTENCY_RETRY_REQUIRED` and the browser must create a new key only after an explicit user retry.
+- A reservation is leased for `AI_USAGE_RESERVATION_TTL_MS`. The internal reconciler consumes a stale reservation linked to a completed result, refunds one linked to a failed result, and marks an expired pending result as failed before refunding. It is not a public endpoint.
 - See `docs/ai-service-integration.md` for the internal request mapping and error behavior.
 
 ### AI result representation
@@ -158,3 +164,14 @@ The complete request/response examples, error codes, migration requirement and f
 - Action and detail AI responses include data.aiResult.result as the parsed structured result when resultText contains JSON.
 - data.aiResult.resultText remains available for backward compatibility.
 - Legacy non-JSON resultText is returned as a string in data.aiResult.result; list responses continue to omit detailed result fields.
+
+## Billing foundation (disabled by default)
+
+The billing server is deliberately disabled until the product owner approves the plan catalog and a PayOS launch review is complete. `BILLING_ENABLED=false` returns `503 BILLING_DISABLED` for checkout and webhook handling. No frontend checkout UI is activated by this backend foundation.
+
+- `POST /api/billing/checkout` requires an Applicant JWT and an `Idempotency-Key` header. The only accepted body is `{ "planCode": "PRO_30D" }`; amount, currency, credits, and status are server-owned and rejected if supplied by the client.
+- `GET /api/billing/me` returns the caller's effective entitlement and up to 20 recent orders.
+- `GET /api/billing/orders/:orderId` is ownership-scoped to the authenticated Applicant.
+- `POST /api/billing/webhooks/payos` is public because the provider calls it, but it accepts a payment only after SDK signature verification and exact matching of `orderCode`, VND amount, and payment-link id. Browser return/cancel URLs are never payment authority.
+
+Webhook processing marks an order `PAID` and creates its `PRO_30D` entitlement in one MongoDB transaction. It is idempotent for duplicate provider delivery and therefore requires a MongoDB replica set. Expired/cancelled-order reconciliation and provider-dashboard webhook registration remain deployment-runbook work; no migration, index apply, provider setup, or payment request is run by this change.
