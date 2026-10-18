@@ -15,7 +15,6 @@ jobs:
     env:
       NODE_ENV: test
       AI_SERVICE_ENABLED: "false"
-      MONGOMS_DOWNLOAD_DIR: ${{ runner.temp }}/mongodb-binaries
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,6 +28,8 @@ jobs:
       - name: Install from lockfile
         run: npm ci
       - name: Run isolated test suite
+        env:
+          MONGOMS_DOWNLOAD_DIR: ${{ runner.temp }}/mongodb-binaries
         run: npm test
       - name: Compile TypeScript
         run: npm run build

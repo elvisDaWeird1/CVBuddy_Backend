@@ -73,20 +73,22 @@ test("production startup rejects weak JWT configuration and accepts a complete b
 });
 
 test("rate limiter returns 429 after its configured threshold", async () => {
-  const app = express();
-  app.get("/", createRateLimit(60_000, 1, "Rate limit test"), (req, res) => res.sendStatus(204));
-  app.use((error, req, res, next) => res.status(error.statusCode || 500).json({ code: error.code }));
-  const server = app.listen(0);
-  await new Promise((resolve) => server.once("listening", resolve));
+  await withEnvironment({ NODE_ENV: "development", DISABLE_RATE_LIMIT: undefined }, async () => {
+    const app = express();
+    app.get("/", createRateLimit(60_000, 1, "Rate limit test"), (req, res) => res.sendStatus(204));
+    app.use((error, req, res, next) => res.status(error.statusCode || 500).json({ code: error.code }));
+    const server = app.listen(0);
+    await new Promise((resolve) => server.once("listening", resolve));
 
-  try {
-    const port = server.address().port;
-    assert.equal((await request(port)).statusCode, 204);
-    const limited = await request(port);
-    assert.equal(limited.statusCode, 429);
-  } finally {
-    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  }
+    try {
+      const port = server.address().port;
+      assert.equal((await request(port)).statusCode, 204);
+      const limited = await request(port);
+      assert.equal(limited.statusCode, 429);
+    } finally {
+      await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
 });
 
 test("CV upload limiter applies only to the upload route, not CV reads", () => {
