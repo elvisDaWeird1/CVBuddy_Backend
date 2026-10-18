@@ -195,6 +195,89 @@ test("invalid or mismatched webhooks do not grant PRO", async () => {
     (error) => error.code === "PAYMENT_MISMATCH"
   );
   assert.equal(await EntitlementGrant.countDocuments({ accountId }), 0);
+
+  await assert.rejects(
+    () => processPayOSWebhook({
+      payload: { orderCode: stored.orderCode, amount: stored.amountVnd, currency: "VND", paymentLinkId: "other-payment-link", code: "00", reference: "bad-link" },
+      adapter
+    }),
+    (error) => error.code === "PAYMENT_MISMATCH"
+  );
+  assert.equal(await EntitlementGrant.countDocuments({ accountId }), 0);
+});
+
+test("an invalid PayOS signature is rejected before acknowledgement", async () => {
+  const invalidSignatureAdapter = {
+    ...adapter,
+    verifyWebhook: async () => {
+      throw Object.assign(new Error("invalid signature"), { code: "INVALID_PAYMENT_WEBHOOK" });
+    }
+  };
+  await assert.rejects(
+    () => processPayOSWebhook({ payload: { any: "payload" }, adapter: invalidSignatureAdapter }),
+    (error) => error.statusCode === 400 && error.code === "INVALID_PAYMENT_WEBHOOK"
+  );
+  assert.equal(await BillingOrder.countDocuments({}), 0);
+  assert.equal(await EntitlementGrant.countDocuments({}), 0);
+});
+
+test("a signed unmatched webhook probe is acknowledged without database writes", async () => {
+  const before = {
+    orders: await BillingOrder.countDocuments({}),
+    grants: await EntitlementGrant.countDocuments({})
+  };
+  const probeOrderCode = Number(`${Date.now()}`.slice(-12));
+  const probeAdapter = {
+    ...adapter,
+    verifyWebhook: async () => ({
+      providerOrderCode: probeOrderCode,
+      paymentLinkId: `registration-probe-${probeOrderCode}`,
+      amount: 1,
+      currency: "VND",
+      status: "PAID"
+    })
+  };
+
+  const result = await processPayOSWebhook({ payload: { signed: true }, adapter: probeAdapter });
+
+  assert.deepEqual(result, { acknowledged: true, matched: false });
+  assert.equal(await BillingOrder.countDocuments({}), before.orders);
+  assert.equal(await EntitlementGrant.countDocuments({}), before.grants);
+});
+
+test("billing-disabled accepts only a signed unmatched probe and leaves matching payments retryable", async () => {
+  const accountId = new mongoose.Types.ObjectId();
+  const checkout = await createCheckout({ accountId, planCode: "PRO_30D", idempotencyKey: "billing-disabled-webhook-001", adapter });
+  const stored = await BillingOrder.findById(checkout.order.id);
+  const previous = process.env.BILLING_ENABLED;
+  process.env.BILLING_ENABLED = "false";
+  try {
+    const unmatched = await processPayOSWebhook({
+      payload: { ignored: true },
+      adapter: {
+        ...adapter,
+        verifyWebhook: async () => ({
+          providerOrderCode: stored.orderCode + 1,
+          paymentLinkId: "signed-registration-probe",
+          amount: 1,
+          currency: "VND",
+          status: "PAID"
+        })
+      }
+    });
+    assert.deepEqual(unmatched, { acknowledged: true, matched: false });
+    await assert.rejects(
+      () => processPayOSWebhook({
+        payload: { orderCode: stored.orderCode },
+        adapter
+      }),
+      (error) => error.statusCode === 503 && error.code === "BILLING_DISABLED"
+    );
+    assert.equal((await BillingOrder.findById(stored._id)).status, "PENDING");
+    assert.equal(await EntitlementGrant.countDocuments({ accountId }), 0);
+  } finally {
+    process.env.BILLING_ENABLED = previous;
+  }
 });
 
 test("a verified settled webhook grants PRO exactly once", async () => {
@@ -218,7 +301,11 @@ test("a verified settled webhook grants PRO exactly once", async () => {
   const first = await processPayOSWebhook({ payload, adapter, now: new Date("2026-10-18T00:00:00.000Z") });
   const second = await processPayOSWebhook({ payload, adapter, now: new Date("2026-10-18T00:00:00.000Z") });
 
+  assert.equal(first.acknowledged, true);
+  assert.equal(first.matched, true);
   assert.equal(first.granted, true);
+  assert.equal(second.acknowledged, true);
+  assert.equal(second.matched, true);
   assert.equal(second.granted, false);
   assert.equal(await EntitlementGrant.countDocuments({ accountId, planCode: "PRO_30D" }), 1);
   assert.equal((await BillingOrder.findById(stored._id)).status, "PAID");
