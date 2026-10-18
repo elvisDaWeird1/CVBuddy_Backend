@@ -15,7 +15,9 @@
     "rollout:monetization-indexes": "ts-node --transpile-only scripts/rollout-monetization-indexes.ts",
     "rollout:monetization-indexes:apply": "ts-node --transpile-only scripts/rollout-monetization-indexes.ts --apply",
     "verify:monetization-indexes": "ts-node --transpile-only scripts/rollout-monetization-indexes.ts --verify",
+    "verify:payos-payment": "ts-node --transpile-only scripts/verify-payos-payment.ts",
     "typecheck:monetization-indexes": "tsc --noEmit -p tsconfig.migrations.json",
+    "typecheck:payos-verification": "tsc --noEmit -p tsconfig.payos-verification.json",
     "provision:admin": "ts-node scripts/provision-admin.ts",
     "start": "node dist/server.js",
     "test:ai:e2e": "node --require ts-node/register/transpile-only scripts/test-ai-e2e.ts"
