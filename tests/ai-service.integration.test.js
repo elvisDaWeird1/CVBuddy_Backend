@@ -47,6 +47,28 @@ const analyzeRequest = {
   strict_industry_match: false
 };
 
+const extractResponse = {
+  sections: {
+    summary: ["Backend engineer"],
+    experience: ["Built an API"],
+    education: [],
+    skills: ["Node.js"],
+    projects: [],
+    certifications: [],
+    other: []
+  },
+  local_metrics: {
+    bullet_count: 1,
+    quantified_bullet_count: 0,
+    has_quantified_bullets: false,
+    avg_bullet_length: 12,
+    section_count: 3,
+    detected_languages: ["en"]
+  },
+  meta: { source: "groq", provider: "groq", model: "test" },
+  normalized_text_length: 34
+};
+
 test("public AI requests reject client-controlled tier and plan fields", () => {
   const cvId = "507f1f77bcf86cd799439011";
   const forgedFields = [
@@ -195,6 +217,77 @@ test("AI client maps FastAPI validation errors without exposing raw internals", 
       assert.equal(error.errors[0].field, "body.industry_slug");
       return true;
     }
+  );
+});
+
+test("AI client preserves an upstream 5xx when its response body is not JSON", async () => {
+  const client = new AiServiceClient({
+    requestId: "request-upstream-html",
+    fetchImpl: async () => new Response("<html>gateway failure</html>", {
+      status: 502,
+      headers: { "Content-Type": "text/html" }
+    })
+  });
+
+  await assert.rejects(
+    client.analyzeCv(analyzeRequest),
+    (error) => {
+      assert.ok(error instanceof AiServiceError);
+      assert.equal(error.kind, "http");
+      assert.equal(error.statusCode, 502);
+      assert.equal(error.responseFormat, "non_json");
+      assert.equal(error.message, "AI service returned an internal error");
+      assert.doesNotMatch(error.message, /gateway failure/);
+      return true;
+    }
+  );
+});
+
+test("AI client classifies an empty successful response without exposing a body", async () => {
+  const client = new AiServiceClient({
+    fetchImpl: async () => new Response(null, { status: 200 })
+  });
+
+  await assert.rejects(
+    client.analyzeCv(analyzeRequest),
+    (error) => {
+      assert.equal(error.kind, "invalid_response");
+      assert.equal(error.responseFormat, "empty");
+      return true;
+    }
+  );
+});
+
+test("AI client accepts a complete non-empty extraction contract", async () => {
+  const client = new AiServiceClient({
+    fetchImpl: async () => new Response(JSON.stringify(extractResponse), { status: 200 })
+  });
+
+  const result = await client.extractCv(
+    { bytes: Buffer.from("synthetic"), filename: "synthetic.pdf", mimeType: "application/pdf" },
+    { mode: "hybrid", targetLanguage: "en" }
+  );
+
+  assert.equal(result.normalized_text_length, 34);
+  assert.deepEqual(result.local_metrics.detected_languages, ["en"]);
+});
+
+test("AI client rejects an empty extraction before downstream analysis", async () => {
+  const client = new AiServiceClient({
+    fetchImpl: async () => new Response(JSON.stringify({
+      ...extractResponse,
+      sections: Object.fromEntries(Object.keys(extractResponse.sections).map((key) => [key, []])),
+      local_metrics: {},
+      normalized_text_length: 0
+    }), { status: 200 })
+  });
+
+  await assert.rejects(
+    client.extractCv(
+      { bytes: Buffer.from("synthetic"), filename: "synthetic.pdf", mimeType: "application/pdf" },
+      { mode: "hybrid", targetLanguage: "en" }
+    ),
+    (error) => error.kind === "invalid_response" && /invalid extraction response/.test(error.message)
   );
 });
 
