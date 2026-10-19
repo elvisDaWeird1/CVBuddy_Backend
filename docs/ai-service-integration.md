@@ -151,9 +151,10 @@ The typed client includes methods for `/v1/portfolio/suggest` and `/v1/portfolio
 | FastAPI validation 4xx | Safe `4xx` response |
 | FastAPI quota | `429` |
 | FastAPI 5xx | `502 AI_PROVIDER_ERROR` |
-| Invalid FastAPI JSON/schema, missing Groq provenance, or disallowed mock output | `502 AI_PROVIDER_ERROR` |
+| Non-JSON/empty success response, invalid FastAPI schema, missing Groq provenance, or disallowed mock output | `502 AI_PROVIDER_ERROR` |
+| Non-JSON/empty FastAPI error response | Preserve the upstream HTTP failure class and map it to the existing safe Node error code |
 
-FastAPI stack traces, raw CV payloads, API keys, and tokens are not returned or logged by the adapter. Failed AIResult records are marked `FAILED` with a safe error message.
+FastAPI stack traces, raw response bodies, CV payloads, API keys, and tokens are not returned or logged by the adapter. Logs classify an upstream body only as `json`, `non_json`, or `empty`, together with the safe HTTP status and request ID. Extraction responses must contain all section arrays, the complete local-metrics object, a positive normalized text length, and at least one non-empty extracted block before Node can call the analyze step. Failed AIResult records are marked `FAILED` with a safe error message.
 
 ## Tests and health checks
 
@@ -164,7 +165,7 @@ npm test
 npm run build
 ```
 
-The AI boundary tests mock HTTP and cover URL normalization, FastAPI validation errors, fail-closed capability gating, connection failures, timeouts, 5xx responses, explicit local mock opt-in/rejection, and successful persistence. They do not call Groq or Ollama.
+The AI boundary tests mock HTTP and cover URL normalization, FastAPI validation errors, non-JSON/empty upstream classification, strict extraction validation, fail-closed capability gating, connection failures, timeouts, 5xx responses, explicit local mock opt-in/rejection, and successful persistence. They do not call Groq or Ollama.
 
 Manual liveness/readiness checks:
 

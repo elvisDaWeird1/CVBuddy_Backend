@@ -117,17 +117,24 @@ type LocalCvFile = {
 };
 
 type AiServiceErrorKind = "unavailable" | "timeout" | "http" | "invalid_response";
+type AiResponseFormat = "json" | "non_json" | "empty";
 
 class AiServiceError extends Error {
   readonly kind: AiServiceErrorKind;
   readonly statusCode?: number;
   readonly upstreamCode?: string;
   readonly errors: ErrorItem[];
+  readonly responseFormat?: AiResponseFormat;
 
   constructor(
     kind: AiServiceErrorKind,
     message: string,
-    options: { statusCode?: number; upstreamCode?: string; errors?: ErrorItem[] } = {}
+    options: {
+      statusCode?: number;
+      upstreamCode?: string;
+      errors?: ErrorItem[];
+      responseFormat?: AiResponseFormat;
+    } = {}
   ) {
     super(message);
     this.name = "AiServiceError";
@@ -135,6 +142,7 @@ class AiServiceError extends Error {
     this.statusCode = options.statusCode;
     this.upstreamCode = options.upstreamCode;
     this.errors = options.errors || [];
+    this.responseFormat = options.responseFormat;
   }
 }
 
@@ -206,24 +214,58 @@ const parseErrorDetail = (payload: unknown) => {
   };
 };
 
-const parseJsonBody = (raw: string): unknown => {
+const parseJsonBody = (raw: string): { payload: unknown; responseFormat: AiResponseFormat } => {
   if (!raw.trim()) {
-    return null;
+    return { payload: null, responseFormat: "empty" };
   }
 
   try {
-    return JSON.parse(raw) as unknown;
+    return { payload: JSON.parse(raw) as unknown, responseFormat: "json" };
   } catch {
-    throw new AiServiceError("invalid_response", "AI service returned invalid JSON");
+    return { payload: null, responseFormat: "non_json" };
   }
 };
+
+const sectionKeys: Array<keyof FastApiCvSections> = [
+  "summary",
+  "experience",
+  "education",
+  "skills",
+  "projects",
+  "certifications",
+  "other"
+];
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
+const hasExtractedContent = (sections: Record<string, unknown>) =>
+  sectionKeys.some((key) =>
+    Array.isArray(sections[key]) && sections[key].some((item) =>
+      typeof item === "string" && item.trim().length > 0
+    )
+  );
+
+const hasValidLocalMetrics = (metrics: Record<string, unknown>) =>
+  isNumber(metrics.bullet_count) && metrics.bullet_count >= 0
+  && isNumber(metrics.quantified_bullet_count) && metrics.quantified_bullet_count >= 0
+  && typeof metrics.has_quantified_bullets === "boolean"
+  && isNumber(metrics.avg_bullet_length) && metrics.avg_bullet_length >= 0
+  && isNumber(metrics.section_count) && metrics.section_count >= 0
+  && isStringArray(metrics.detected_languages);
 
 const validateExtractResponse = (payload: unknown): FastApiExtractResponse => {
   if (!isRecord(payload) || !isRecord(payload.sections) || !isRecord(payload.local_metrics)) {
     throw new AiServiceError("invalid_response", "AI service returned an invalid extraction response");
   }
 
-  if (!isNumber(payload.normalized_text_length)) {
+  if (
+    !sectionKeys.every((key) => isStringArray(payload.sections[key]))
+    || !hasValidLocalMetrics(payload.local_metrics)
+    || !isNumber(payload.normalized_text_length)
+    || payload.normalized_text_length <= 0
+    || !hasExtractedContent(payload.sections)
+  ) {
     throw new AiServiceError("invalid_response", "AI service returned an invalid extraction response");
   }
 
@@ -318,7 +360,7 @@ class AiServiceClient {
         redirect: "error",
         signal: controller.signal
       });
-      const payload = parseJsonBody(await response.text());
+      const { payload, responseFormat } = parseJsonBody(await response.text());
 
       if (!response.ok) {
         const statusCode = response.status;
@@ -334,7 +376,14 @@ class AiServiceClient {
         throw new AiServiceError("http", message, {
           statusCode,
           upstreamCode: detail.code,
-          errors: statusCode >= 500 ? [] : parseErrorItems(payload)
+          errors: statusCode >= 500 ? [] : parseErrorItems(payload),
+          responseFormat
+        });
+      }
+
+      if (responseFormat !== "json") {
+        throw new AiServiceError("invalid_response", "AI service returned invalid JSON", {
+          responseFormat
         });
       }
 
@@ -362,6 +411,7 @@ class AiServiceClient {
           kind: error.kind,
           statusCode: error.statusCode,
           upstreamCode: error.upstreamCode,
+          responseFormat: error.responseFormat,
           requestId: this.requestId
         });
         throw error;
@@ -462,6 +512,7 @@ export {
   AiServiceError,
   isAiServiceError,
   type ErrorItem,
+  type AiResponseFormat,
   type FastApiAnalyzeRequest,
   type FastApiAnalyzeResponse,
   type FastApiCvSections,
