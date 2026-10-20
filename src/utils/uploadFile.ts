@@ -15,9 +15,24 @@ const PORTFOLIO_FILE_MIME_BY_EXTENSION = {
   ".doc": ["application/msword"],
   ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
 };
+const PDF_HEADER = Buffer.from("%PDF", "ascii");
+const PDF_HEADER_SCAN_LIMIT = 1024;
+const UTF8_BOM = [0xef, 0xbb, 0xbf];
+const PDF_LEADING_WHITESPACE = new Set([0x09, 0x0a, 0x0c, 0x0d, 0x20]);
 
 const startsWithBytes = (buffer: Buffer, bytes: number[]) =>
   bytes.every((byte, index) => buffer[index] === byte);
+
+const hasPdfHeader = (buffer: Buffer) => {
+  const prefix = buffer.subarray(0, Math.min(buffer.length, PDF_HEADER_SCAN_LIMIT));
+  let offset = startsWithBytes(prefix, UTF8_BOM) ? UTF8_BOM.length : 0;
+
+  while (offset < prefix.length && PDF_LEADING_WHITESPACE.has(prefix[offset])) {
+    offset += 1;
+  }
+
+  return prefix.subarray(offset, offset + PDF_HEADER.length).equals(PDF_HEADER);
+};
 
 const errorWithCode = (
   statusCode: number,
@@ -98,7 +113,7 @@ const assertCvFileContent = (file: Express.Multer.File | undefined) => {
   }
 
   const extension = path.extname(sanitizeOriginalFilename(file.originalname)).toLowerCase();
-  const isPdf = file.buffer.toString("ascii", 0, 4) === "%PDF";
+  const isPdf = hasPdfHeader(file.buffer);
   const isZip =
     startsWithBytes(file.buffer, [0x50, 0x4b, 0x03, 0x04]) ||
     startsWithBytes(file.buffer, [0x50, 0x4b, 0x05, 0x06]) ||
