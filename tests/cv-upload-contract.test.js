@@ -41,6 +41,23 @@ test("CV upload rejects fake MIME, extension, and signature combinations", () =>
   );
 });
 
+test("CV upload accepts a PDF with leading whitespace before its header", () => {
+  const topCvStylePdf = Buffer.from("\n%PDF-1.7\nsynthetic-pdf-body", "ascii");
+
+  assert.doesNotThrow(() =>
+    assertCvFileContent(file("cv.pdf", "application/pdf", topCvStylePdf))
+  );
+});
+
+test("CV upload rejects arbitrary content before an embedded PDF header", () => {
+  const disguisedFile = Buffer.from("not-a-pdf\n%PDF-1.7", "ascii");
+
+  assert.throws(
+    () => assertCvFileContent(file("cv.pdf", "application/pdf", disguisedFile)),
+    (error) => error.statusCode === 400 && error.code === "INVALID_CV_FILE"
+  );
+});
+
 test("legacy DOC files are rejected for new uploads", () => {
   const legacyDocSignature = Buffer.from([
     0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1
