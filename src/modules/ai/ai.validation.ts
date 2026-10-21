@@ -87,6 +87,12 @@ const careerTargetAiRequestValidation = (req) => {
     errors.push({ field: "industrySlug", message: "industrySlug must be a normalized slug" });
   }
 
+  if (!isNonEmptyString(body.verticalSlug)) {
+    errors.push({ field: "verticalSlug", message: "verticalSlug is required" });
+  } else if (!/^[a-z0-9]+(?:[_-][a-z0-9]+)*$/.test(body.verticalSlug.trim())) {
+    errors.push({ field: "verticalSlug", message: "verticalSlug must be a normalized slug" });
+  }
+
   if (!isNonEmptyString(body.targetRole)) {
     errors.push({ field: "targetRole", message: "targetRole is required" });
   } else if (body.targetRole.trim().length < 2) {

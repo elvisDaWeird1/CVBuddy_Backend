@@ -19,6 +19,7 @@ export interface IAIResult extends Document {
   errorMessage?: string;
   errorCode?: string;
   industrySlug?: string;
+  verticalSlug?: string;
   targetRole?: string;
   workflowId?: Types.ObjectId;
   createdAt: Date;
@@ -77,6 +78,11 @@ const AIResultSchema = new mongoose.Schema<IAIResult>(
       trim: true
     },
     industrySlug: {
+      type: String,
+      trim: true,
+      lowercase: true
+    },
+    verticalSlug: {
       type: String,
       trim: true,
       lowercase: true
