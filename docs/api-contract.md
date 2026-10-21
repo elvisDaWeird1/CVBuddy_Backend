@@ -155,6 +155,8 @@ The complete request/response examples, error codes, migration requirement and f
 - When `AI_SERVICE_ENABLED=false`, AI execution routes return HTTP `503` with code `AI_FEATURE_DISABLED`; result history/detail routes remain readable.
 - Upstream transport errors use `AI_SERVICE_UNAVAILABLE` (`503`), `AI_SERVICE_AUTH_FAILED` (`503`), `AI_SERVICE_TIMEOUT` (`504`), `AI_PROVIDER_TIMEOUT` (`504`), and `AI_PROVIDER_ERROR` (`502`). No provider failure or disabled capability falls back to a successful mock result.
 - A completed provider response must identify both `meta.source=groq` and `meta.provider=groq`; otherwise it is rejected and stored as `FAILED` when a result record already exists.
+- Every execution request requires `Idempotency-Key`. Node binds it to a SHA-256 fingerprint of the action, CV identifier, and normalized request semantics. Reuse with different semantics returns `409 IDEMPOTENCY_PAYLOAD_MISMATCH`; reuse after a confirmed refund returns `409 IDEMPOTENCY_RETRY_REQUIRED` and the browser must create a new key only after an explicit user retry.
+- A reservation is leased for `AI_USAGE_RESERVATION_TTL_MS`. The internal reconciler consumes a stale reservation linked to a completed result, refunds one linked to a failed result, and marks an expired pending result as failed before refunding. It is not a public endpoint.
 - See `docs/ai-service-integration.md` for the internal request mapping and error behavior.
 
 ### AI result representation
@@ -165,11 +167,11 @@ The complete request/response examples, error codes, migration requirement and f
 
 ## Billing foundation (disabled by default)
 
-The billing server is deliberately disabled until the product owner approves the plan catalog and a PayOS launch review is complete. `BILLING_ENABLED=false` returns `503 BILLING_DISABLED` for checkout and webhook handling. No frontend checkout UI is activated by this backend foundation.
+The billing server is deliberately disabled until the product owner approves the plan catalog and a PayOS launch review is complete. `BILLING_ENABLED=false` returns `503 BILLING_DISABLED` for checkout and matching payment webhook handling. A signed PayOS registration probe that has no matching CVBuddy order is acknowledged with `200` and performs no database write, so provider URL validation can complete without enabling billing. No frontend checkout UI is activated by this backend foundation.
 
 - `POST /api/billing/checkout` requires an Applicant JWT and an `Idempotency-Key` header. The only accepted body is `{ "planCode": "PRO_30D" }`; amount, currency, credits, and status are server-owned and rejected if supplied by the client.
-- `GET /api/billing/me` returns the caller's effective entitlement and up to 20 recent orders.
+- `GET /api/billing/me` returns the caller's effective entitlement, up to 20 recent orders, and an additive server-owned catalog projection. The response is `data.billing` with `enabled`, `catalogVersion`, `plans.FREE`, `plans.PRO_30D`, `featureCosts`, `entitlement`, and `orders`. The catalog projection is informational only: it does not enable checkout and clients cannot submit amount, currency, credits, or status.
 - `GET /api/billing/orders/:orderId` is ownership-scoped to the authenticated Applicant.
-- `POST /api/billing/webhooks/payos` is public because the provider calls it, but it accepts a payment only after SDK signature verification and exact matching of `orderCode`, VND amount, and payment-link id. Browser return/cancel URLs are never payment authority.
+- `POST /api/billing/webhooks/payos` is public because the provider calls it, but it verifies the SDK signature before any acknowledgement. A signed event with no local `orderCode` is acknowledged as `{ acknowledged: true, matched: false }` without creating or changing any record; this is limited to provider registration probes. A matching event requires enabled billing plus exact `orderCode`, VND amount, and payment-link-id validation. Browser return/cancel URLs are never payment authority.
 
 Webhook processing marks an order `PAID` and creates its `PRO_30D` entitlement in one MongoDB transaction. It is idempotent for duplicate provider delivery and therefore requires a MongoDB replica set. Expired/cancelled-order reconciliation and provider-dashboard webhook registration remain deployment-runbook work; no migration, index apply, provider setup, or payment request is run by this change.

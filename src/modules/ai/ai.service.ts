@@ -368,13 +368,15 @@ const runCvAiAction = async ({
   cvId,
   aiType,
   payload,
-  requestId
+  requestId,
+  onResultCreated
 }: {
   accountId;
   cvId: string;
   aiType: string;
   payload: AiRequestPayload;
   requestId?: string;
+  onResultCreated?: (aiResultId: string) => Promise<void>;
 }) => {
   assertAiFeatureEnabled();
   const cv = await getOwnedActiveCv(accountId, cvId);
@@ -398,6 +400,7 @@ const runCvAiAction = async ({
   });
 
   try {
+    if (onResultCreated) await onResultCreated(aiResult._id.toString());
     const output = await generateAiOutput({
       aiType,
       cv,
@@ -428,22 +431,25 @@ const generateFeedback = (
   accountId,
   cvId: string,
   payload: AiRequestPayload,
-  requestId?: string
-) => runCvAiAction({ accountId, cvId, aiType: AI_TYPES.CV_FEEDBACK, payload, requestId });
+  requestId?: string,
+  onResultCreated?: (aiResultId: string) => Promise<void>
+) => runCvAiAction({ accountId, cvId, aiType: AI_TYPES.CV_FEEDBACK, payload, requestId, onResultCreated });
 
 const generateScore = (
   accountId,
   cvId: string,
   payload: AiRequestPayload,
-  requestId?: string
-) => runCvAiAction({ accountId, cvId, aiType: AI_TYPES.CV_SCORING, payload, requestId });
+  requestId?: string,
+  onResultCreated?: (aiResultId: string) => Promise<void>
+) => runCvAiAction({ accountId, cvId, aiType: AI_TYPES.CV_SCORING, payload, requestId, onResultCreated });
 
 const translateToEnglish = (
   accountId,
   cvId: string,
   payload: AiRequestPayload,
-  requestId?: string
-) => runCvAiAction({ accountId, cvId, aiType: AI_TYPES.CV_TRANSLATION, payload, requestId });
+  requestId?: string,
+  onResultCreated?: (aiResultId: string) => Promise<void>
+) => runCvAiAction({ accountId, cvId, aiType: AI_TYPES.CV_TRANSLATION, payload, requestId, onResultCreated });
 
 const completeAiResult = async (
   aiResult,
@@ -483,7 +489,8 @@ const translateAndScore = async (
   accountId,
   cvId: string,
   payload: AiRequestPayload,
-  requestId?: string
+  requestId?: string,
+  onResultCreated?: (aiResultId: string) => Promise<void>
 ) => {
   assertAiFeatureEnabled();
   const cv = await getOwnedActiveCv(accountId, cvId);
@@ -526,6 +533,7 @@ const translateAndScore = async (
   let sourceText = inputText;
 
   try {
+    if (onResultCreated) await onResultCreated(translationResult._id.toString());
     assertAiFeatureEnabled();
     const file = await new CvFileSourceAdapter({
       timeoutMs: config.timeoutMs

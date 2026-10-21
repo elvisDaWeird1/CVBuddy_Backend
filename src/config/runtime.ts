@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 import { assertCloudinaryConfigured, getCloudinaryConfig } from "./cloudinary.config";
 import { validateSecurityConfig } from "./security";
 import { getAiServiceConfig } from "../modules/ai/ai.config";
-import { getBillingConfig } from "../modules/billing/billing.config";
+import { getBillingConfig, getBillingReconciliationConfig } from "../modules/billing/billing.config";
+import { getMongoTransactionCapability } from "./mongoTransactions";
 
 const isAiEnabled = () => getAiServiceConfig().enabled;
 const isExplicitlyEnabled = (value?: string) =>
@@ -67,6 +68,8 @@ const validateProductionRuntimeConfig = () => {
   }
   if (isAiEnabled()) {
     assertIntegerInRange("AI_SERVICE_TIMEOUT_MS", process.env.AI_SERVICE_TIMEOUT_MS, 1_000, 120_000);
+    assertIntegerInRange("AI_USAGE_RESERVATION_TTL_MS", process.env.AI_USAGE_RESERVATION_TTL_MS, 60_000, 3_600_000);
+    assertIntegerInRange("AI_USAGE_RECONCILE_INTERVAL_MS", process.env.AI_USAGE_RECONCILE_INTERVAL_MS, 60_000, 3_600_000);
   }
   if (isExplicitlyEnabled(process.env.AI_SERVICE_ALLOW_MOCK_OUTPUT)) {
     throw new Error("AI_SERVICE_ALLOW_MOCK_OUTPUT must not be enabled in production.");
@@ -74,6 +77,8 @@ const validateProductionRuntimeConfig = () => {
 
   const billing = getBillingConfig();
   if (billing.enabled) {
+    // Parse this here so an invalid server-side worker setting fails before serving billing traffic.
+    getBillingReconciliationConfig();
     if (!billing.clientId || !billing.apiKey || !billing.checksumKey) {
       throw new Error("PAYOS_CLIENT_ID, PAYOS_API_KEY, and PAYOS_CHECKSUM_KEY are required when billing is enabled in production.");
     }
@@ -86,30 +91,50 @@ const validateProductionRuntimeConfig = () => {
   }
 };
 
-const getReadiness = () => {
+const assertMongoTransactionCapabilityForEnabledFeatures = async () => {
+  const required = isAiEnabled() || getBillingConfig().enabled;
+  if (!required || process.env.NODE_ENV !== "production") return;
+
+  const capability = await getMongoTransactionCapability();
+  if (!capability.supported) {
+    throw new Error("MongoDB deployment does not support transactions required by enabled AI or billing features.");
+  }
+};
+
+const getReadiness = async () => {
   const cloudinary = getCloudinaryConfig();
   const aiConfig = getAiServiceConfig();
   const aiEnabled = aiConfig.enabled;
   const aiReady = aiEnabled
     ? isServiceRootUrl(aiConfig.baseUrl) && aiConfig.internalApiKey.length > 0
     : null;
+  const transactionRequired = aiEnabled || getBillingConfig().enabled;
+  const transaction = transactionRequired
+    ? await getMongoTransactionCapability()
+    : { required: false, supported: null, topology: null };
   const checks = {
     mongo: mongoose.connection.readyState === 1,
     cloudinary: Boolean(cloudinary.cloudName && cloudinary.apiKey && cloudinary.apiSecret),
     ai: {
       enabled: aiEnabled,
       ready: aiReady
+    },
+    transactions: {
+      required: transactionRequired,
+      supported: transactionRequired ? transaction.supported : null,
+      topology: transactionRequired ? transaction.topology : null
     }
   };
 
   return {
-    ready: checks.mongo && checks.cloudinary && aiReady !== false,
+    ready: checks.mongo && checks.cloudinary && aiReady !== false && transaction.supported !== false,
     checks,
     aiEnabled
   };
 };
 
 export {
+  assertMongoTransactionCapabilityForEnabledFeatures,
   getReadiness,
   isAiEnabled,
   isServiceRootUrl,

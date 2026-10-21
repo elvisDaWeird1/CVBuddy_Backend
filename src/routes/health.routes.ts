@@ -9,8 +9,8 @@ router.get("/", (req, res) => {
   return successResponse(res, "CVBuddy backend is running");
 });
 
-router.get("/ready", (req, res) => {
-  const readiness = getReadiness();
+router.get("/ready", async (req, res) => {
+  const readiness = await getReadiness();
   return successResponse(
     res,
     readiness.ready ? "CVBuddy backend is ready" : "CVBuddy backend is not ready",
