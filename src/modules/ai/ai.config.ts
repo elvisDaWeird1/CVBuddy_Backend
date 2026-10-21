@@ -4,6 +4,8 @@ const DEFAULT_INDUSTRY_SLUGS = [
   "ai_software",
   "business_administration",
   "computer_science",
+  "finance_banking",
+  "hospitality_tourism",
   "language",
   "law",
   "marketing"
