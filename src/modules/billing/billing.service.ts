@@ -88,6 +88,14 @@ const expirePendingBillingOrders = async ({ now = new Date(), limit = 100 } = {}
 };
 
 const assertReusableOrder = async (order, now: Date) => {
+  if (order.amountVnd !== PLAN_CATALOG[PLAN_CODES.PRO_30D].priceVnd) {
+    throw new ApiError(
+      409,
+      "The previous checkout uses an outdated price. Start a new checkout with a new idempotency key.",
+      [],
+      "BILLING_CHECKOUT_RETRY_REQUIRED"
+    );
+  }
   if (order.status === BILLING_ORDER_STATUSES.PENDING && order.expiresAt > now) return order;
   if (order.status === BILLING_ORDER_STATUSES.PENDING) await expireBillingOrder(order._id, now);
   throw new ApiError(

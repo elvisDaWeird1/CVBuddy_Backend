@@ -22,11 +22,11 @@ const {
 
 const sortableResult = (value) => ({ sort: async () => value });
 
-test("draft plan catalog is versioned and keeps price and credits server-owned", () => {
-  assert.equal(PLAN_CATALOG_VERSION, "2026-10-17-draft");
+test("plan catalog is versioned and keeps price and credits server-owned", () => {
+  assert.equal(PLAN_CATALOG_VERSION, "2026-10-22");
   assert.equal(PLAN_CATALOG[PLAN_CODES.FREE].priceVnd, 0);
   assert.equal(PLAN_CATALOG[PLAN_CODES.FREE].creditsGranted, 4);
-  assert.equal(PLAN_CATALOG[PLAN_CODES.PRO_30D].priceVnd, 79000);
+  assert.equal(PLAN_CATALOG[PLAN_CODES.PRO_30D].priceVnd, 49000);
   assert.equal(PLAN_CATALOG[PLAN_CODES.PRO_30D].creditsGranted, 60);
   assert.equal(PLAN_CATALOG[PLAN_CODES.PRO_30D].durationDays, 30);
 });
