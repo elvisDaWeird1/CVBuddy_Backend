@@ -58,6 +58,22 @@ test("source adapter reads a local PDF", async () => {
   }
 });
 
+test("source adapter accepts a PDF with leading whitespace before its header", async () => {
+  const local = createLocalFile(".pdf", Buffer.from("\n%PDF-1.7 TopCV-style"));
+  try {
+    const result = await new CvFileSourceAdapter().getFile({
+      fileUrl: "/uploads/cvs/" + local.filename,
+      fileType: "pdf"
+    });
+
+    assert.equal(result.mimeType, "application/pdf");
+    assert.equal(result.bytes[0], 0x0a);
+    assert.equal(result.bytes.toString("ascii", 1, 5), "%PDF");
+  } finally {
+    removeFile(local.filePath);
+  }
+});
+
 test("source adapter reads a local DOCX", async () => {
   const local = createLocalFile(".docx", Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]));
   try {
