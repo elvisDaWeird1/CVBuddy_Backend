@@ -71,9 +71,18 @@ test("public AI requests reject client-controlled tier and plan fields", () => {
 
   const validCareerRequest = careerTargetAiRequestValidation({
     params: { cvId },
-    body: { industrySlug: "ai_software", targetRole: "Backend Engineer" }
+    body: { industrySlug: "ai_software", verticalSlug: "backend_ai", targetRole: "Backend Engineer" }
   });
   assert.deepEqual(validCareerRequest, []);
+});
+
+test("career targeting requires verticalSlug and defaults support finance and hospitality", () => {
+  const cvId = "507f1f77bcf86cd799439011";
+  assert.ok(careerTargetAiRequestValidation({ params: { cvId }, body: { industrySlug: "finance_banking", targetRole: "Financial Analyst" } }).some((error) => error.field === "verticalSlug"));
+  const { getAiServiceConfig } = require("../src/modules/ai/ai.config");
+  const config = getAiServiceConfig();
+  assert.ok(config.supportedIndustrySlugs.includes("finance_banking"));
+  assert.ok(config.supportedIndustrySlugs.includes("hospitality_tourism"));
 });
 
 const runTranslationFailureCase = async ({ fetchImpl, timeoutMs, expectedStatus, expectedCode }) => {

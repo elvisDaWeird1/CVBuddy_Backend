@@ -80,6 +80,7 @@ const serializeAiResult = (aiResult, options: SerializeAiResultOptions = {}) => 
     errorMessage?: string | null;
     errorCode?: string | null;
     industrySlug?: string;
+    verticalSlug?: string;
     targetRole?: string;
     workflowId?: string;
   } = {
@@ -95,6 +96,7 @@ const serializeAiResult = (aiResult, options: SerializeAiResultOptions = {}) => 
   };
 
   if (aiResult.industrySlug) payload.industrySlug = aiResult.industrySlug;
+  if (aiResult.verticalSlug) payload.verticalSlug = aiResult.verticalSlug;
   if (aiResult.targetRole) payload.targetRole = aiResult.targetRole;
   if (aiResult.workflowId) payload.workflowId = aiResult.workflowId.toString();
 
@@ -391,6 +393,7 @@ const runCvAiAction = async ({
     status: AI_STATUSES.PENDING,
     inputText,
     industrySlug: payload.industrySlug?.trim().toLowerCase(),
+    verticalSlug: payload.verticalSlug?.trim().toLowerCase(),
     targetRole: payload.targetRole?.trim()
   });
 
@@ -487,6 +490,7 @@ const translateAndScore = async (
   const config = getAiServiceConfig();
   const industrySlug = resolveIndustrySlug(payload, config);
   const targetRole = payload.targetRole?.trim();
+  const verticalSlug = payload.verticalSlug?.trim().toLowerCase();
   const workflowId = new Types.ObjectId();
   const inputText = resolveInputText(cv, payload);
   const common = {
@@ -495,6 +499,7 @@ const translateAndScore = async (
     status: AI_STATUSES.PENDING,
     inputText,
     industrySlug,
+    verticalSlug,
     targetRole,
     workflowId
   };
@@ -515,7 +520,7 @@ const translateAndScore = async (
     });
     throw error;
   }
-  const normalizedPayload = { ...payload, industrySlug, targetRole };
+  const normalizedPayload = { ...payload, industrySlug, verticalSlug, targetRole };
 
   let extraction: FastApiExtractResponse;
   let sourceText = inputText;
@@ -585,6 +590,7 @@ const translateAndScore = async (
     status: completed ? AI_STATUSES.COMPLETED : AI_STATUSES.FAILED,
     cvId: cv._id.toString(),
     industrySlug,
+    verticalSlug,
     targetRole,
     resultIds: {
       translation: translationResult._id.toString(),
@@ -632,6 +638,7 @@ const getMyAiWorkflowByResultId = async (accountId, aiResultId: string) => {
     status: completed ? AI_STATUSES.COMPLETED : AI_STATUSES.FAILED,
     cvId: seed.cvDocumentId?.toString(),
     industrySlug: seed.industrySlug,
+    verticalSlug: seed.verticalSlug,
     targetRole: seed.targetRole,
     resultIds: {
       translation: translationResult._id.toString(),
