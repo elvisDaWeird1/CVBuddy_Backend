@@ -6,6 +6,7 @@ import {
   getCloudinarySignedDownloadUrl
 } from "../../../config/cloudinary.config";
 import ApiError from "../../../utils/apiError";
+import { hasPdfHeader } from "../../../utils/uploadFile";
 import type { LocalCvFile } from "../clients/ai-service.client";
 
 type CvDocumentSource = {
@@ -68,7 +69,7 @@ const startsWithBytes = (buffer: Buffer, bytes: number[]) =>
   bytes.every((byte, index) => buffer[index] === byte);
 
 const validateFileSignature = (buffer: Buffer, mimeType: string) => {
-  if (mimeType === PDF_MIME && buffer.toString("ascii", 0, 4) !== "%PDF") {
+  if (mimeType === PDF_MIME && !hasPdfHeader(buffer)) {
     throw new ApiError(415, "CV file content does not match its MIME type", [
       { field: "file", message: "The PDF signature is invalid" }
     ]);

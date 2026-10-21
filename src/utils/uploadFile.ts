@@ -206,5 +206,6 @@ export {
   assertFileBuffer,
   assertImageFileContent,
   assertPortfolioFileContent,
+  hasPdfHeader,
   sanitizeOriginalFilename
 };
