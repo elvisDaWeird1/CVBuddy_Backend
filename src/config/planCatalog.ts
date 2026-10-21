@@ -1,4 +1,4 @@
-const PLAN_CATALOG_VERSION = "2026-10-17-draft";
+const PLAN_CATALOG_VERSION = "2026-10-22";
 
 const PLAN_CODES = Object.freeze({
   FREE: "FREE",
@@ -23,7 +23,7 @@ const PLAN_CATALOG = Object.freeze({
     code: PLAN_CODES.PRO_30D,
     durationDays: 30,
     creditsGranted: 60,
-    priceVnd: 79_000
+    priceVnd: 49_000
   })
 });
 

@@ -40,7 +40,7 @@ const adapter = {
   }),
   getPaymentStatus: async (paymentLinkId, orderCode) => ({
     providerOrderCode: orderCode,
-    amount: 79000,
+    amount: 49000,
     currency: "VND",
     paymentLinkId,
     status: "PENDING"
@@ -77,8 +77,8 @@ test("checkout keeps price server-owned and reuses its idempotency key", async (
     ...adapter,
     createCheckout: async (payload) => {
         providerCalls += 1;
-        assert.equal(payload.amount, 79000);
-        assert.equal(payload.items[0].price, 79000);
+        assert.equal(payload.amount, 49000);
+        assert.equal(payload.items[0].price, 49000);
         assert.match(payload.returnUrl, /orderId=/);
         return adapter.createCheckout(payload);
       }
@@ -96,7 +96,7 @@ test("checkout keeps price server-owned and reuses its idempotency key", async (
 
   assert.equal(first.created, true);
   assert.equal(second.created, false);
-  assert.equal(first.order.amountVnd, 79000);
+  assert.equal(first.order.amountVnd, 49000);
   assert.equal(first.order.id, second.order.id);
   assert.equal(providerCalls, 1);
 });
@@ -108,12 +108,12 @@ test("billing status exposes a server-owned catalog while checkout remains disab
   try {
     const billing = await getMyBilling(accountId, new Date("2026-10-18T00:00:00.000Z"));
     assert.equal(billing.enabled, false);
-    assert.equal(billing.catalogVersion, "2026-10-17-draft");
+    assert.equal(billing.catalogVersion, "2026-10-22");
     assert.deepEqual(billing.plans.PRO_30D, {
       code: "PRO_30D",
       durationDays: 30,
       creditsGranted: 60,
-      priceVnd: 79000
+      priceVnd: 49000
     });
     assert.deepEqual(billing.featureCosts, {
       CV_EVALUATION: 2,
@@ -134,6 +134,36 @@ test("billing status exposes a server-owned catalog while checkout remains disab
   } finally {
     process.env.BILLING_ENABLED = previous;
   }
+});
+
+test("an old-price pending checkout requires a new idempotency key and keeps its snapshot", async () => {
+  const accountId = new mongoose.Types.ObjectId();
+  const oldOrder = await BillingOrder.create({
+    accountId,
+    orderCode: 202610170001,
+    planCode: "PRO_30D",
+    amountVnd: 79000,
+    status: "PENDING",
+    idempotencyKey: "billing-old-price-001",
+    paymentLinkId: "old-price-link",
+    checkoutUrl: "https://checkout.example.test/old-price",
+    expiresAt: new Date("2026-10-23T00:00:00.000Z")
+  });
+
+  await assert.rejects(
+    () => createCheckout({
+      accountId,
+      planCode: "PRO_30D",
+      idempotencyKey: "billing-old-price-001",
+      adapter,
+      now: new Date("2026-10-22T00:00:00.000Z")
+    }),
+    (error) => error.code === "BILLING_CHECKOUT_RETRY_REQUIRED" && error.statusCode === 409
+  );
+  const unchanged = await BillingOrder.findById(oldOrder._id);
+  assert.equal(unchanged.amountVnd, 79000);
+  assert.equal(unchanged.status, "PENDING");
+  assert.equal(unchanged.paymentLinkId, "old-price-link");
 });
 
 test("concurrent checkout requests reuse one order and one provider checkout", async () => {
@@ -292,6 +322,7 @@ test("a verified settled webhook grants PRO exactly once", async () => {
     adapter
   });
   const stored = await BillingOrder.findById(checkout.order.id);
+  assert.equal(stored.amountVnd, 49000);
   const payload = {
     orderCode: stored.orderCode,
     amount: stored.amountVnd,
@@ -398,12 +429,12 @@ test("PayOS adapter allowlists status and returns only normalized safe fields", 
   const fakeSdk = {
     paymentRequests: {
       create: async () => ({}),
-      get: async () => ({ id: "link-safe", orderCode: 123, amount: 79000, status: "PAID", transactions: [{ reference: "ref-safe" }] })
+      get: async () => ({ id: "link-safe", orderCode: 123, amount: 49000, status: "PAID", transactions: [{ reference: "ref-safe" }] })
     },
-    webhooks: { verify: async () => ({ paymentLinkId: "link-safe", orderCode: 123, amount: 79000, currency: "VND", code: "00", reference: "ref-safe" }) }
+    webhooks: { verify: async () => ({ paymentLinkId: "link-safe", orderCode: 123, amount: 49000, currency: "VND", code: "00", reference: "ref-safe" }) }
   };
   const normalized = await createPayOSAdapter(fakeSdk).getPaymentStatus("link-safe", 123);
-  assert.deepEqual(normalized, { providerOrderCode: 123, paymentLinkId: "link-safe", status: "PAID", amount: 79000, currency: "VND", paidAt: undefined, providerReference: "ref-safe" });
+  assert.deepEqual(normalized, { providerOrderCode: 123, paymentLinkId: "link-safe", status: "PAID", amount: 49000, currency: "VND", paidAt: undefined, providerReference: "ref-safe" });
   await assert.rejects(
     () => createPayOSAdapter({ ...fakeSdk, paymentRequests: { ...fakeSdk.paymentRequests, get: async () => ({ id: "x", orderCode: 123, amount: 1, status: "UNRECOGNIZED" }) } }).getPaymentStatus("x", 123),
     (error) => error.code === "BILLING_PROVIDER_MALFORMED_RESPONSE" && !String(error.message).includes("secret")
@@ -434,6 +465,7 @@ test("PayOS adapter classifies rate limits, timeouts, and provider 5xx without l
 });
 
 test("read-only provider verification compares a paid order without mutating it", async () => {
+  // Historical paid orders retain the amount snapshot used at checkout.
   const order = { orderCode: 456, paymentLinkId: "safe-link", amountVnd: 79000, status: "PAID" };
   const verification = await verifyPaidOrderProviderState({
     order,
