@@ -706,7 +706,7 @@ test("translation extracts text from a file when extractedText is absent", async
     language: "VI"
   });
   fs.promises.stat = async () => ({ isFile: () => true, size: 12 });
-  fs.promises.readFile = async () => Buffer.from("%PDF-translation");
+  fs.promises.readFile = async () => Buffer.from("\n%PDF-translation");
   const calls = [];
   const extraction = {
     sections: {
