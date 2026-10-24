@@ -210,6 +210,30 @@ test("AI client preserves the safe FastAPI error code without exposing internals
   );
 });
 
+test("AI POST calls carry the internal key only to the configured host and reject redirects", async () => {
+  const paths = [];
+  const client = new AiServiceClient({
+    baseUrl: "http://ai:8000/",
+    internalApiKey: "test-only-internal-key-not-a-real-secret",
+    fetchImpl: async (input, init) => {
+      const url = new URL(input);
+      assert.equal(url.origin, "http://ai:8000");
+      assert.equal(init.method, "POST");
+      assert.equal(init.redirect, "error");
+      assert.equal(init.headers.get("X-AI-Internal-Key"), "test-only-internal-key-not-a-real-secret");
+      assert.equal(init.headers.has("Authorization"), false);
+      paths.push(url.pathname);
+      return new Response(JSON.stringify(url.pathname === "/v1/translate"
+        ? { translated: "Work experience", notes: [], meta: { source: "groq", provider: "groq" } }
+        : analyzeResponse), { status: 200 });
+    }
+  });
+  await client.analyzeCv(analyzeRequest);
+  await client.extractAndAnalyze({ bytes: Buffer.from("%PDF-test"), mimeType: "application/pdf", filename: "cv.pdf" }, {});
+  await client.translate({ text: "Kinh nghiem", source_lang: "vi", target_lang: "en", mode: "cv_native", tier: "free" });
+  assert.deepEqual(paths, ["/v1/cv/analyze", "/v1/cv/extract-and-analyze", "/v1/translate"]);
+});
+
 test("AI client maps FastAPI validation errors without exposing raw internals", async () => {
   const client = new AiServiceClient({
     fetchImpl: async () => new Response(JSON.stringify({

@@ -29,6 +29,7 @@ Out: FastAPI changes, real payment provider calls, PayOS dashboard configuration
 - Catalog values remain draft and must not be treated as commercial approval.
 - New indexes are source-only; no database write or migration was run.
 - Credit reserve/refund uses MongoDB transactions and therefore requires a replica set in deployed environments.
+- Idempotency is fingerprint-bound to action/CV/request semantics; stale reservations are reconciled from their linked AI result state by a non-public background loop.
 
 ## Validation
 
