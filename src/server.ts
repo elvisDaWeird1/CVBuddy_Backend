@@ -10,6 +10,8 @@ import {
 } from "./config/runtime";
 import { startAiUsageReconciliation } from "./modules/usage/usage.service";
 import { isAiEnabled } from "./config/runtime";
+import { startBillingReconciliation } from "./modules/billing/billing.service";
+import { getBillingConfig, getBillingReconciliationConfig } from "./modules/billing/billing.config";
 
 const PORT = Number(process.env.PORT || 5000);
 const HOST = process.env.HOST?.trim() || "0.0.0.0";
@@ -20,10 +22,22 @@ const startServer = async () => {
     await connectDB();
     await assertMongoTransactionCapabilityForEnabledFeatures();
     if (isAiEnabled()) startAiUsageReconciliation();
+    const stopBillingReconciliation = getBillingConfig().enabled && getBillingReconciliationConfig().enabled
+      ? startBillingReconciliation()
+      : () => undefined;
 
-    app.listen(PORT, HOST, () => {
+    const server = app.listen(PORT, HOST, () => {
       console.log(`CVBuddy backend server is running at http://${HOST}:${PORT}`);
     });
+    let shuttingDown = false;
+    const shutdown = () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      stopBillingReconciliation();
+      server.close(() => process.exit(0));
+    };
+    process.once("SIGTERM", shutdown);
+    process.once("SIGINT", shutdown);
   } catch (error) {
     console.error("CVBuddy backend failed to start.");
     console.error(error.message);

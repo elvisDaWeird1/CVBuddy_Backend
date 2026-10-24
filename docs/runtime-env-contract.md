@@ -22,5 +22,11 @@ Production startup validates these values before opening the listener. Secrets a
 | `PAYOS_CLIENT_ID` / `PAYOS_API_KEY` / `PAYOS_CHECKSUM_KEY` | Required only when billing is enabled; platform-secret-store values only, never committed or browser-exposed. |
 | `BILLING_RETURN_URL` / `BILLING_CANCEL_URL` | Required valid HTTP(S) browser return routes when billing is enabled. They are display routes, not payment authority. |
 | `PAYOS_WEBHOOK_URL` | Required HTTPS backend webhook URL when billing is enabled. Configure/verify it at the provider only during approved deployment. |
+| `BILLING_RECONCILIATION_ENABLED` | Defaults to `false`. Enable only after a controlled provider read, backup, and reconciliation preflight pass. |
+| `BILLING_RECONCILIATION_INTERVAL_MS` / `BILLING_RECONCILIATION_LEASE_MS` / `BILLING_RECONCILIATION_MAX_AGE_MS` / `BILLING_RECONCILIATION_BATCH_SIZE` | Server-only worker controls. Defaults are 60000 ms, 120000 ms, 86400000 ms, and 25; runtime bounds reject unsafe values. |
+| `MIGRATION_BACKUP_REFERENCE` | Required only for an explicit index-migration `--apply`; reference to the verified backup/PITR point, never a secret. |
 
 `GET /api/health` is liveness only. `GET /api/health/ready` is the deployment gate and returns `503` if Mongo is disconnected, Cloudinary configuration is incomplete, enabled AI lacks a valid service-root URL/internal key, or an enabled transaction-dependent feature runs on MongoDB standalone topology. The read-only `hello` command accepts a replica set or `mongos`; it never writes a transaction probe. Production startup applies the same transaction capability gate before listening.
+
+The monetization index rollout also requires an explicit `--database <name>`
+argument and refuses a connected database whose name differs from that expected name.

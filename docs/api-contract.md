@@ -167,11 +167,11 @@ The complete request/response examples, error codes, migration requirement and f
 
 ## Billing foundation (disabled by default)
 
-The billing server is deliberately disabled until the product owner approves the plan catalog and a PayOS launch review is complete. `BILLING_ENABLED=false` returns `503 BILLING_DISABLED` for checkout and webhook handling. No frontend checkout UI is activated by this backend foundation.
+The billing server is deliberately disabled until the product owner approves the plan catalog and a PayOS launch review is complete. `BILLING_ENABLED=false` returns `503 BILLING_DISABLED` for checkout and matching payment webhook handling. A signed PayOS registration probe that has no matching CVBuddy order is acknowledged with `200` and performs no database write, so provider URL validation can complete without enabling billing. No frontend checkout UI is activated by this backend foundation.
 
 - `POST /api/billing/checkout` requires an Applicant JWT and an `Idempotency-Key` header. The only accepted body is `{ "planCode": "PRO_30D" }`; amount, currency, credits, and status are server-owned and rejected if supplied by the client.
-- `GET /api/billing/me` returns the caller's effective entitlement and up to 20 recent orders.
+- `GET /api/billing/me` returns the caller's effective entitlement, up to 20 recent orders, and an additive server-owned catalog projection. The response is `data.billing` with `enabled`, `catalogVersion`, `plans.FREE`, `plans.PRO_30D`, `featureCosts`, `entitlement`, and `orders`. The catalog projection is informational only: it does not enable checkout and clients cannot submit amount, currency, credits, or status.
 - `GET /api/billing/orders/:orderId` is ownership-scoped to the authenticated Applicant.
-- `POST /api/billing/webhooks/payos` is public because the provider calls it, but it accepts a payment only after SDK signature verification and exact matching of `orderCode`, VND amount, and payment-link id. Browser return/cancel URLs are never payment authority.
+- `POST /api/billing/webhooks/payos` is public because the provider calls it, but it verifies the SDK signature before any acknowledgement. A signed event with no local `orderCode` is acknowledged as `{ acknowledged: true, matched: false }` without creating or changing any record; this is limited to provider registration probes. A matching event requires enabled billing plus exact `orderCode`, VND amount, and payment-link-id validation. Browser return/cancel URLs are never payment authority.
 
 Webhook processing marks an order `PAID` and creates its `PRO_30D` entitlement in one MongoDB transaction. It is idempotent for duplicate provider delivery and therefore requires a MongoDB replica set. Expired/cancelled-order reconciliation and provider-dashboard webhook registration remain deployment-runbook work; no migration, index apply, provider setup, or payment request is run by this change.

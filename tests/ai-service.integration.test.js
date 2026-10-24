@@ -47,6 +47,28 @@ const analyzeRequest = {
   strict_industry_match: false
 };
 
+const extractResponse = {
+  sections: {
+    summary: ["Backend engineer"],
+    experience: ["Built an API"],
+    education: [],
+    skills: ["Node.js"],
+    projects: [],
+    certifications: [],
+    other: []
+  },
+  local_metrics: {
+    bullet_count: 1,
+    quantified_bullet_count: 0,
+    has_quantified_bullets: false,
+    avg_bullet_length: 12,
+    section_count: 3,
+    detected_languages: ["en"]
+  },
+  meta: { source: "groq", provider: "groq", model: "test" },
+  normalized_text_length: 34
+};
+
 test("public AI requests reject client-controlled tier and plan fields", () => {
   const cvId = "507f1f77bcf86cd799439011";
   const forgedFields = [
@@ -71,9 +93,18 @@ test("public AI requests reject client-controlled tier and plan fields", () => {
 
   const validCareerRequest = careerTargetAiRequestValidation({
     params: { cvId },
-    body: { industrySlug: "ai_software", targetRole: "Backend Engineer" }
+    body: { industrySlug: "ai_software", verticalSlug: "backend_ai", targetRole: "Backend Engineer" }
   });
   assert.deepEqual(validCareerRequest, []);
+});
+
+test("career targeting requires verticalSlug and defaults support finance and hospitality", () => {
+  const cvId = "507f1f77bcf86cd799439011";
+  assert.ok(careerTargetAiRequestValidation({ params: { cvId }, body: { industrySlug: "finance_banking", targetRole: "Financial Analyst" } }).some((error) => error.field === "verticalSlug"));
+  const { getAiServiceConfig } = require("../src/modules/ai/ai.config");
+  const config = getAiServiceConfig();
+  assert.ok(config.supportedIndustrySlugs.includes("finance_banking"));
+  assert.ok(config.supportedIndustrySlugs.includes("hospitality_tourism"));
 });
 
 const runTranslationFailureCase = async ({ fetchImpl, timeoutMs, expectedStatus, expectedCode }) => {
@@ -222,6 +253,77 @@ test("AI client maps FastAPI validation errors without exposing raw internals", 
   );
 });
 
+test("AI client preserves an upstream 5xx when its response body is not JSON", async () => {
+  const client = new AiServiceClient({
+    requestId: "request-upstream-html",
+    fetchImpl: async () => new Response("<html>gateway failure</html>", {
+      status: 502,
+      headers: { "Content-Type": "text/html" }
+    })
+  });
+
+  await assert.rejects(
+    client.analyzeCv(analyzeRequest),
+    (error) => {
+      assert.ok(error instanceof AiServiceError);
+      assert.equal(error.kind, "http");
+      assert.equal(error.statusCode, 502);
+      assert.equal(error.responseFormat, "non_json");
+      assert.equal(error.message, "AI service returned an internal error");
+      assert.doesNotMatch(error.message, /gateway failure/);
+      return true;
+    }
+  );
+});
+
+test("AI client classifies an empty successful response without exposing a body", async () => {
+  const client = new AiServiceClient({
+    fetchImpl: async () => new Response(null, { status: 200 })
+  });
+
+  await assert.rejects(
+    client.analyzeCv(analyzeRequest),
+    (error) => {
+      assert.equal(error.kind, "invalid_response");
+      assert.equal(error.responseFormat, "empty");
+      return true;
+    }
+  );
+});
+
+test("AI client accepts a complete non-empty extraction contract", async () => {
+  const client = new AiServiceClient({
+    fetchImpl: async () => new Response(JSON.stringify(extractResponse), { status: 200 })
+  });
+
+  const result = await client.extractCv(
+    { bytes: Buffer.from("synthetic"), filename: "synthetic.pdf", mimeType: "application/pdf" },
+    { mode: "hybrid", targetLanguage: "en" }
+  );
+
+  assert.equal(result.normalized_text_length, 34);
+  assert.deepEqual(result.local_metrics.detected_languages, ["en"]);
+});
+
+test("AI client rejects an empty extraction before downstream analysis", async () => {
+  const client = new AiServiceClient({
+    fetchImpl: async () => new Response(JSON.stringify({
+      ...extractResponse,
+      sections: Object.fromEntries(Object.keys(extractResponse.sections).map((key) => [key, []])),
+      local_metrics: {},
+      normalized_text_length: 0
+    }), { status: 200 })
+  });
+
+  await assert.rejects(
+    client.extractCv(
+      { bytes: Buffer.from("synthetic"), filename: "synthetic.pdf", mimeType: "application/pdf" },
+      { mode: "hybrid", targetLanguage: "en" }
+    ),
+    (error) => error.kind === "invalid_response" && /invalid extraction response/.test(error.message)
+  );
+});
+
 test("AI client maps AbortController timeouts", async () => {
   const client = new AiServiceClient({
     timeoutMs: 5,
@@ -272,6 +374,25 @@ test("AI client rejects a successful response that does not prove Groq provenanc
     new AiServiceClient({ fetchImpl }).analyzeCv(analyzeRequest),
     (error) => error.kind === "invalid_response" && /source and provider/.test(error.message)
   );
+});
+
+test("production AI client rejects Groq responses without the required metadata contract", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    await assert.rejects(
+      new AiServiceClient({
+        fetchImpl: async () => new Response(JSON.stringify({
+          ...analyzeResponse,
+          meta: { source: "groq", provider: "groq", model: "test" }
+        }), { status: 200 })
+      }).analyzeCv(analyzeRequest),
+      (error) => error.kind === "invalid_response" && /supported production metadata/.test(error.message)
+    );
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
 });
 
 test("AI service connection failure marks AIResult failed", async () => {
@@ -609,7 +730,7 @@ test("translation extracts text from a file when extractedText is absent", async
     language: "VI"
   });
   fs.promises.stat = async () => ({ isFile: () => true, size: 12 });
-  fs.promises.readFile = async () => Buffer.from("%PDF-translation");
+  fs.promises.readFile = async () => Buffer.from("\n%PDF-translation");
   const calls = [];
   const extraction = {
     sections: {
@@ -729,4 +850,28 @@ test("translation marks AIResult failed when extraction fails", async () => {
     fs.promises.stat = originalStat;
     fs.promises.readFile = originalReadFile;
   }
+});
+
+test("AI POST calls carry the internal key only to the configured host and reject redirects", async () => {
+  const paths = [];
+  const client = new AiServiceClient({
+    baseUrl: "http://ai:8000/",
+    internalApiKey: "test-only-internal-key-not-a-real-secret",
+    fetchImpl: async (input, init) => {
+      const url = new URL(input);
+      assert.equal(url.origin, "http://ai:8000");
+      assert.equal(init.method, "POST");
+      assert.equal(init.redirect, "error");
+      assert.equal(init.headers.get("X-AI-Internal-Key"), "test-only-internal-key-not-a-real-secret");
+      assert.equal(init.headers.has("Authorization"), false);
+      paths.push(url.pathname);
+      return new Response(JSON.stringify(url.pathname === "/v1/translate"
+        ? { translated: "Work experience", notes: [], meta: { source: "groq", provider: "groq" } }
+        : analyzeResponse), { status: 200 });
+    }
+  });
+  await client.analyzeCv(analyzeRequest);
+  await client.extractAndAnalyze({ bytes: Buffer.from("%PDF-test"), mimeType: "application/pdf", filename: "cv.pdf" }, {});
+  await client.translate({ text: "Kinh nghiem", source_lang: "vi", target_lang: "en", mode: "cv_native", tier: "free" });
+  assert.deepEqual(paths, ["/v1/cv/analyze", "/v1/cv/extract-and-analyze", "/v1/translate"]);
 });
