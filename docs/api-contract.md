@@ -155,6 +155,8 @@ The complete request/response examples, error codes, migration requirement and f
 - When `AI_SERVICE_ENABLED=false`, AI execution routes return HTTP `503` with code `AI_FEATURE_DISABLED`; result history/detail routes remain readable.
 - Upstream transport errors use `AI_SERVICE_UNAVAILABLE` (`503`), `AI_SERVICE_AUTH_FAILED` (`503`), `AI_SERVICE_TIMEOUT` (`504`), `AI_PROVIDER_TIMEOUT` (`504`), and `AI_PROVIDER_ERROR` (`502`). No provider failure or disabled capability falls back to a successful mock result.
 - A completed provider response must identify both `meta.source=groq` and `meta.provider=groq`; otherwise it is rejected and stored as `FAILED` when a result record already exists.
+- Every execution request requires `Idempotency-Key`. Node binds it to a SHA-256 fingerprint of the action, CV identifier, and normalized request semantics. Reuse with different semantics returns `409 IDEMPOTENCY_PAYLOAD_MISMATCH`; reuse after a confirmed refund returns `409 IDEMPOTENCY_RETRY_REQUIRED` and the browser must create a new key only after an explicit user retry.
+- A reservation is leased for `AI_USAGE_RESERVATION_TTL_MS`. The internal reconciler consumes a stale reservation linked to a completed result, refunds one linked to a failed result, and marks an expired pending result as failed before refunding. It is not a public endpoint.
 - See `docs/ai-service-integration.md` for the internal request mapping and error behavior.
 
 ### AI result representation

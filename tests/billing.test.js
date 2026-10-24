@@ -57,8 +57,8 @@ test("checkout keeps price server-owned and reuses its idempotency key", async (
     paymentRequests: {
       create: async (payload) => {
         providerCalls += 1;
-        assert.equal(payload.amount, 79000);
-        assert.equal(payload.items[0].price, 79000);
+        assert.equal(payload.amount, 49000);
+        assert.equal(payload.items[0].price, 49000);
         assert.match(payload.returnUrl, /orderId=/);
         return client.paymentRequests.create(payload);
       }
@@ -77,9 +77,39 @@ test("checkout keeps price server-owned and reuses its idempotency key", async (
 
   assert.equal(first.created, true);
   assert.equal(second.created, false);
-  assert.equal(first.order.amountVnd, 79000);
+  assert.equal(first.order.amountVnd, 49000);
   assert.equal(first.order.id, second.order.id);
   assert.equal(providerCalls, 1);
+});
+
+test("an old-price pending order is not reused and keeps its historical amount", async () => {
+  const accountId = new mongoose.Types.ObjectId();
+  const oldOrder = await BillingOrder.create({
+    accountId,
+    orderCode: 202610170001,
+    planCode: "PRO_30D",
+    amountVnd: 79000,
+    status: "PENDING",
+    idempotencyKey: "billing-old-price-001",
+    paymentLinkId: "old-price-link",
+    checkoutUrl: "https://checkout.example.test/old-price",
+    expiresAt: new Date("2026-10-23T00:00:00.000Z")
+  });
+
+  await assert.rejects(
+    () => createCheckout({
+      accountId,
+      planCode: "PRO_30D",
+      idempotencyKey: "billing-old-price-001",
+      client,
+      now: new Date("2026-10-22T00:00:00.000Z")
+    }),
+    (error) => error.code === "CHECKOUT_PRICE_CHANGED" && error.statusCode === 409
+  );
+  const unchanged = await BillingOrder.findById(oldOrder._id);
+  assert.equal(unchanged.amountVnd, 79000);
+  assert.equal(unchanged.status, "PENDING");
+  assert.equal(unchanged.paymentLinkId, "old-price-link");
 });
 
 test("invalid or mismatched webhooks do not grant PRO", async () => {
@@ -111,6 +141,7 @@ test("a verified settled webhook grants PRO exactly once", async () => {
     client
   });
   const stored = await BillingOrder.findById(checkout.order.id);
+  assert.equal(stored.amountVnd, 49000);
   const payload = {
     orderCode: stored.orderCode,
     amount: stored.amountVnd,

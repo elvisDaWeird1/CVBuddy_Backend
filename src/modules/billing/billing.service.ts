@@ -105,6 +105,26 @@ const createCheckout = async ({
     if (existing.planCode !== planCode) {
       throw new ApiError(409, "Idempotency key was already used for a different plan", [], "IDEMPOTENCY_CONFLICT");
     }
+    const currentPlan = PLAN_CATALOG[PLAN_CODES.PRO_30D];
+    if (existing.amountVnd !== currentPlan.priceVnd) {
+      throw new ApiError(
+        409,
+        "This checkout uses an outdated price. Create a new checkout.",
+        [],
+        "CHECKOUT_PRICE_CHANGED"
+      );
+    }
+    if (
+      existing.status !== BILLING_ORDER_STATUSES.PENDING ||
+      existing.expiresAt.getTime() <= now.getTime()
+    ) {
+      throw new ApiError(
+        409,
+        "This checkout is no longer payable. Create a new checkout.",
+        [],
+        "CHECKOUT_NOT_PAYABLE"
+      );
+    }
     return { order: serializeBillingOrder(existing), created: false };
   }
 
