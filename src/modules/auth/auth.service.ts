@@ -4,11 +4,13 @@ import ApiError from "../../utils/apiError";
 import { signAuthToken } from "../../utils/jwt";
 import {
   ACCOUNT_ROLES,
-  ACCOUNT_STATUSES
+  ACCOUNT_STATUSES,
+  AUTH_METHODS
 } from "../../constants/enums";
 import Account from "../accounts/account.model";
 import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import CompanyProfile from "../companyProfiles/companyProfile.model";
+import { isApplicantProfileIncomplete } from "./googleAuth.service";
 import { revokeToken } from "./tokenRevocation.service";
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
@@ -23,12 +25,25 @@ const getSaltRounds = () => {
   return saltRounds;
 };
 
-const serializeAccount = (account) => {
+const resolveAccountAuthMethods = (account) => {
+  return Array.isArray(account.authMethods) && account.authMethods.length > 0
+    ? account.authMethods
+    : [AUTH_METHODS.PASSWORD];
+};
+
+const serializeAccount = (
+  account,
+  options: { needsProfileCompletion?: boolean } = {}
+) => {
   return {
     id: account._id.toString(),
     email: account.email,
     role: account.role,
-    status: account.status
+    status: account.status,
+    authMethods: resolveAccountAuthMethods(account),
+    ...(typeof options.needsProfileCompletion === "boolean"
+      ? { needsProfileCompletion: options.needsProfileCompletion }
+      : {})
   };
 };
 
@@ -40,7 +55,8 @@ const serializeApplicantProfile = (profile) => {
   return {
     id: profile._id.toString(),
     fullName: profile.fullName,
-    avatarUrl: profile.avatarUrl || ""
+    avatarUrl: profile.avatarUrl || "",
+    isComplete: !isApplicantProfileIncomplete(profile)
   };
 };
 
@@ -69,6 +85,7 @@ const createAccount = async ({ email, password, role }) => {
   return Account.create({
     email,
     passwordHash,
+    authMethods: [AUTH_METHODS.PASSWORD],
     role
   });
 };
@@ -151,6 +168,15 @@ const login = async ({ email, password }) => {
     throw new ApiError(401, "Not found account");
   }
 
+  if (!account.passwordHash) {
+    throw new ApiError(
+      401,
+      "This account uses Google Sign-In. Please continue with Google.",
+      [],
+      "PASSWORD_LOGIN_UNAVAILABLE"
+    );
+  }
+
   const passwordMatches = await bcrypt.compare(password, account.passwordHash);
 
   if (!passwordMatches) {
@@ -192,8 +218,15 @@ const getCurrentAccount = async (accountId) => {
     );
   }
 
+  const authMethods = resolveAccountAuthMethods(account);
+  const needsProfileCompletion =
+    account.role === ACCOUNT_ROLES.APPLICANT &&
+    authMethods.includes(AUTH_METHODS.GOOGLE) &&
+    profile?.isComplete !== true;
+
   return {
-    account: serializeAccount(account),
+    needsProfileCompletion,
+    account: serializeAccount(account, { needsProfileCompletion }),
     profile
   };
 };
@@ -209,6 +242,15 @@ const changePassword = async ({ accountId, currentPassword, newPassword }) => {
     throw new ApiError(403, "Account is not active");
   }
 
+  if (!account.passwordHash) {
+    throw new ApiError(
+      400,
+      "Password cannot be changed for Google-only accounts",
+      [],
+      "PASSWORD_CHANGE_UNAVAILABLE"
+    );
+  }
+
   const passwordMatches = await bcrypt.compare(currentPassword, account.passwordHash);
 
   if (!passwordMatches) {
@@ -216,6 +258,9 @@ const changePassword = async ({ accountId, currentPassword, newPassword }) => {
   }
 
   account.passwordHash = await bcrypt.hash(newPassword, getSaltRounds());
+  const methods = new Set(account.authMethods || []);
+  methods.add(AUTH_METHODS.PASSWORD);
+  account.authMethods = Array.from(methods) as any;
   await account.save();
 };
 

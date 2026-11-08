@@ -24,6 +24,8 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `POST /api/auth/register/applicant`
 - `POST /api/auth/register/company`
 - `POST /api/auth/login`
+- `POST /api/auth/google`
+- `POST /api/auth/google/link`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `PATCH /api/auth/change-password`
@@ -66,6 +68,83 @@ If this file and `src/docs/swagger.paths.ts` disagree, do not guess. Inspect the
 - `PATCH /api/portfolio-items/:id`
 - `DELETE /api/portfolio-items/:id`
 - `POST /api/mobile/portfolio/photos`
+
+## Google Authentication
+
+Google authentication uses Google Identity Services (GIS) ID tokens verified on the backend with `google-auth-library` against `GOOGLE_CLIENT_ID`. Client-supplied `email`, `sub`, or `role` fields are never trusted.
+
+### Endpoints
+
+- `POST /api/auth/google`
+  - Request body: `{ "idToken": "<google_jwt>" }` (also accepts `{ "credential": "<google_jwt>" }` for GIS compatibility).
+  - Verifies signature, issuer (`accounts.google.com` or `https://accounts.google.com`), audience (`GOOGLE_CLIENT_ID`), expiration (`exp`), and `email_verified === true`.
+  - Lookup order:
+    1. By `googleSubject`: signs in the linked account (`200 OK`).
+    2. By normalized `email`:
+       - If the account has no `googleSubject`, does **not** issue a session token; returns `409 GOOGLE_ACCOUNT_LINK_REQUIRED` with `{ success: false, code: "GOOGLE_ACCOUNT_LINK_REQUIRED", message, errors: [], requireLink: true, email, linkToken, data: { requireLink: true, email, linkToken }, requestId }`.
+       - If the account is already linked to a different `googleSubject`, returns `409 GOOGLE_SUBJECT_MISMATCH`.
+    3. New email: creates an `APPLICANT` account with `authMethods: ["GOOGLE"]`, seeds `ApplicantProfile` from verified Google claims, and returns `201 Created`. Google login never creates `ADMIN` or `COMPANY` accounts.
+  - Success response `data`:
+    ```json
+    {
+      "requireLink": false,
+      "isNewAccount": true,
+      "needsProfileCompletion": false,
+      "token": "<cvbuddy_jwt>",
+      "account": {
+        "id": "66a111111111111111111111",
+        "email": "applicant@example.com",
+        "role": "APPLICANT",
+        "status": "ACTIVE",
+        "authMethods": ["GOOGLE"]
+      },
+      "profile": {
+        "id": "66a222222222222222222222",
+        "fullName": "Nguyen Minh Anh",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/avatar",
+        "isComplete": true
+      }
+    }
+    ```
+- `POST /api/auth/google/link`
+  - Single chosen linking contract: public password-verified linking with a mandatory short-lived signed `linkToken` challenge (`10m` expiry, `purpose: "google_account_link"`).
+  - Request body: `{ "idToken": "<google_jwt>", "password": "<current_cvbuddy_password>", "linkToken": "<signed_challenge_jwt>" }`.
+  - Verifies the Google ID token, verifies `linkToken` matches the account ID, email, and `googleSubject`, verifies the account's current password, and atomically sets `googleSubject` + adds `GOOGLE` to `authMethods`.
+  - Returns `200 OK` with `{ token, account, profile, needsProfileCompletion }`.
+
+### Profile-completion signal
+
+- When an applicant's Google claims lack a valid full name (`< 2` characters or blank) or the `ApplicantProfile` still holds the placeholder `"Applicant"` name, the backend sets `data.needsProfileCompletion: true`, `data.account.needsProfileCompletion: true`, and `data.profile.isComplete: false`.
+- `GET /api/auth/me` also returns `data.needsProfileCompletion`, `data.account.authMethods`, `data.account.needsProfileCompletion`, and `data.profile.isComplete` so session hydration after a browser reload preserves Google profile-completion state.
+- The frontend redirects applicants with `needsProfileCompletion: true` (or `profile.isComplete === false`) to `/profile/edit`; complete accounts proceed to `/profile`.
+
+### Stable error codes
+
+| HTTP | `code` | Meaning |
+|---:|---|---|
+| 400 | `BAD_REQUEST` / `VALIDATION_ERROR` | Missing `idToken` or `password` |
+| 400 | `GOOGLE_EMAIL_NOT_VERIFIED` | Google account email is not verified |
+| 400 | `PASSWORD_CHANGE_UNAVAILABLE` | `PATCH /api/auth/change-password` called on a Google-only account without a password |
+| 401 | `GOOGLE_TOKEN_INVALID` | Invalid, expired, wrong-issuer, or wrong-audience Google ID token |
+| 401 | `GOOGLE_LINK_CHALLENGE_INVALID` | Missing, expired, tampered, or mismatched `linkToken` |
+| 401 | `PASSWORD_REQUIRED` | Missing password during account linking |
+| 401 | `INVALID_PASSWORD` | Incorrect current CVBuddy password during account linking |
+| 401 | `PASSWORD_LOGIN_UNAVAILABLE` | `POST /api/auth/login` called on a Google-only account |
+| 403 | `ACCOUNT_INACTIVE` | Account is `SUSPENDED` or `INACTIVE` |
+| 404 | `ACCOUNT_NOT_FOUND` | Target account for linking does not exist |
+| 409 | `GOOGLE_ACCOUNT_LINK_REQUIRED` | Existing email requires password confirmation + `linkToken` to link |
+| 409 | `GOOGLE_SUBJECT_MISMATCH` | Account is already linked to a different Google identity |
+| 409 | `GOOGLE_ALREADY_LINKED` | Google identity is already linked to another CVBuddy account |
+| 409 | `GOOGLE_LINK_CONFLICT` | Concurrent linking race conflict |
+| 503 | `GOOGLE_AUTH_UNAVAILABLE` | `GOOGLE_CLIENT_ID` is not configured on the backend |
+
+### Environment and Google Cloud Console configuration
+
+- Backend `GOOGLE_CLIENT_ID` and frontend `VITE_GOOGLE_CLIENT_ID` must be set to the same OAuth 2.0 Web Client ID (`*.apps.googleusercontent.com`).
+- Configure **Authorized JavaScript origins** in Google Cloud Console:
+  - Local development: `http://localhost:5173` and `http://127.0.0.1:5173`.
+  - Staging / production: the exact HTTPS frontend origin (e.g. `https://app.example.com`).
+- Never place a Google OAuth Client Secret in frontend environment variables or repository files.
 
 ## Admin Metrics API
 

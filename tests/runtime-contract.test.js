@@ -164,3 +164,29 @@ test("transaction topology accepts replica sets and mongos but rejects standalon
     topology: "standalone"
   });
 });
+
+test("production runtime validation accepts a valid GOOGLE_CLIENT_ID and rejects placeholder or malformed values", async () => {
+  await withEnvironment({
+    ...productionBaseline,
+    AI_SERVICE_ENABLED: "false",
+    GOOGLE_CLIENT_ID: "1234567890-abcdefg.apps.googleusercontent.com"
+  }, async () => {
+    assert.doesNotThrow(validateProductionRuntimeConfig);
+  });
+
+  await withEnvironment({
+    ...productionBaseline,
+    AI_SERVICE_ENABLED: "false",
+    GOOGLE_CLIENT_ID: "change_me"
+  }, async () => {
+    assert.throws(validateProductionRuntimeConfig, /GOOGLE_CLIENT_ID/);
+  });
+
+  await withEnvironment({
+    ...productionBaseline,
+    AI_SERVICE_ENABLED: "false",
+    GOOGLE_CLIENT_ID: "invalid-client-id-without-google-domain"
+  }, async () => {
+    assert.throws(validateProductionRuntimeConfig, /GOOGLE_CLIENT_ID/);
+  });
+});

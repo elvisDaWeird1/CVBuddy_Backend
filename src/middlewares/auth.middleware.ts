@@ -23,7 +23,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
   let payload;
 
   try {
-    payload = verifyAuthToken(token) as { accountId: string };
+    payload = verifyAuthToken(token) as { accountId: string; purpose?: unknown };
   } catch (error) {
     throw new ApiError(401, "Invalid or expired token");
   }
@@ -32,7 +32,12 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     ? new Date(payload.exp * 1000)
     : null;
 
-  if (!payload.accountId || !tokenExpiresAt || Number.isNaN(tokenExpiresAt.getTime())) {
+  if (
+    !payload.accountId ||
+    payload.purpose !== undefined ||
+    !tokenExpiresAt ||
+    Number.isNaN(tokenExpiresAt.getTime())
+  ) {
     throw new ApiError(401, "Invalid or expired token");
   }
 
