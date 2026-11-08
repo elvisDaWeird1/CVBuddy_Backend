@@ -13,16 +13,43 @@ No schema index or data migration runs when the backend starts. Run these steps 
 ## Existing database
 
 1. Take and verify a MongoDB backup/snapshot. Assign a rollback owner and record its identifier.
-2. Run `npm run preflight:legacy-portfolio` and `npm run migrate:single-portfolio`; both are non-writing.
+2. Run `npm run preflight:legacy-portfolio`, `npm run migrate:single-portfolio`, and `npm run migrate:google-auth`; all are non-writing.
 3. Resolve every duplicate/orphan/conflict finding manually. Do not discard legacy documents.
-4. With `MIGRATION_BACKUP_REFERENCE` set to the verified backup identifier, run `npm run migrate:single-portfolio:apply`, then `npm run bootstrap:database:apply`.
-5. Re-run both preflights and verify counts/indexes before enabling production traffic.
+4. With `MIGRATION_BACKUP_REFERENCE` set to the verified backup identifier, run `npm run migrate:single-portfolio:apply`, `npm run migrate:google-auth:apply`, and `npm run bootstrap:database:apply`.
+5. Re-run the preflights and `npm run verify:google-auth-migration` to verify counts/indexes before enabling production traffic.
 
 ## Rollback and restore rehearsal
 
 The scripts do not include destructive rollback. If migration verification fails, stop traffic, restore the verified backup/snapshot using the hosting platform's documented MongoDB restore procedure, then run the non-writing preflights to confirm the restored counts. Record the restore duration and owner during staging rehearsal.
 
 `migration_ledger` records the versioned bootstrap application and backup reference. Re-running a completed bootstrap is idempotent: missing indexes are created, existing matching indexes are left unchanged, and incompatible indexes always stop the run for manual review.
+
+## Google Auth account migration (`2026-10-26-account-google-auth-v1`)
+
+Before enabling Google Sign-In in an environment with existing accounts, run the non-writing preflight:
+
+```text
+npm run migrate:google-auth
+```
+
+The preflight inspects `accounts` and `migration_ledger` without writing (and never writes unless `--apply` is passed as a CLI argument):
+
+- Classifies legacy accounts with `passwordHash` for `PASSWORD` backfill and accounts with `googleSubject` for `GOOGLE` backfill.
+- Flags any unclassifiable or conflicting account (e.g. neither `passwordHash` nor `googleSubject`, blank `passwordHash`, null/empty `googleSubject` property, or `authMethods` contradicting stored credentials).
+- Checks for duplicate `googleSubject` values and verifies the sparse unique `googleSubject_1` index.
+
+After taking a verified backup and resolving any conflicts, apply the migration:
+
+```powershell
+$env:MIGRATION_BACKUP_REFERENCE = "<approved-reference>"
+npm run migrate:google-auth:apply
+```
+
+Verify post-apply state at any time with:
+
+```text
+npm run verify:google-auth-migration
+```
 
 ## Monetization index rollout
 

@@ -218,6 +218,102 @@ const swaggerPaths = {
       }
     }
   },
+  "/api/auth/google": {
+    post: {
+      tags: ["Auth"],
+      summary: "Authenticate or register an applicant with a Google ID token",
+      description: "Verifies the Google ID token signature, issuer, audience (GOOGLE_CLIENT_ID), expiry, and email_verified claim. Returns 201 for a newly created APPLICANT account, 200 for a returning Google-linked account, or 409 GOOGLE_ACCOUNT_LINK_REQUIRED with a short-lived linkToken when the email belongs to an existing unlinked password account.",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/GoogleAuthRequest"
+            },
+            example: {
+              idToken: "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij..."
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: "Google login successful",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/GoogleAuthSuccessResponse"
+              }
+            }
+          }
+        },
+        201: {
+          description: "Google account registered successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/GoogleAuthSuccessResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        409: {
+          description: "Account link required or Google subject mismatch",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/GoogleAuthLinkRequiredResponse"
+              }
+            }
+          }
+        },
+        503: errorResponse
+      }
+    }
+  },
+  "/api/auth/google/link": {
+    post: {
+      tags: ["Auth"],
+      summary: "Link a Google identity to an existing password account",
+      description: "Verifies the Google ID token, the short-lived signed linkToken challenge from POST /api/auth/google, and the account current CVBuddy password before atomically linking googleSubject and adding GOOGLE to authMethods.",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/GoogleLinkRequest"
+            },
+            example: {
+              idToken: "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...",
+              password: "Applicant@123",
+              linkToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: "Google account linked successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/GoogleAuthSuccessResponse"
+              }
+            }
+          }
+        },
+        400: errorResponse,
+        401: errorResponse,
+        403: errorResponse,
+        404: errorResponse,
+        409: errorResponse,
+        503: errorResponse
+      }
+    }
+  },
   "/api/auth/logout": {
     post: {
       tags: ["Auth"],
@@ -1367,6 +1463,14 @@ const swaggerComponents = {
           type: "string",
           enum: ["ACTIVE", "INACTIVE", "SUSPENDED"],
           example: "ACTIVE"
+        },
+        authMethods: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["PASSWORD", "GOOGLE"]
+          },
+          example: ["PASSWORD", "GOOGLE"]
         }
       }
     },
@@ -1857,6 +1961,35 @@ const swaggerComponents = {
         }
       }
     },
+    GoogleAuthRequest: {
+      type: "object",
+      required: ["idToken"],
+      properties: {
+        idToken: {
+          type: "string",
+          description: "Google ID token credential returned by Google Identity Services"
+        }
+      }
+    },
+    GoogleLinkRequest: {
+      type: "object",
+      required: ["idToken", "password", "linkToken"],
+      properties: {
+        idToken: {
+          type: "string",
+          description: "Google ID token credential returned by Google Identity Services"
+        },
+        password: {
+          type: "string",
+          format: "password",
+          description: "Current CVBuddy password for the existing account"
+        },
+        linkToken: {
+          type: "string",
+          description: "Short-lived signed challenge token returned by POST /api/auth/google"
+        }
+      }
+    },
     ChangePasswordRequest: {
       type: "object",
       required: ["currentPassword", "newPassword"],
@@ -1988,6 +2121,93 @@ const swaggerComponents = {
                   $ref: "#/components/schemas/Account"
                 }
               }
+            }
+          }
+        }
+      ]
+    },
+    GoogleAuthSuccessResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/SuccessResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                requireLink: {
+                  type: "boolean",
+                  example: false
+                },
+                isNewAccount: {
+                  type: "boolean",
+                  example: true
+                },
+                needsProfileCompletion: {
+                  type: "boolean",
+                  example: false
+                },
+                token: {
+                  type: "string",
+                  example: "jwt_token_here"
+                },
+                account: {
+                  $ref: "#/components/schemas/Account"
+                },
+                profile: {
+                  nullable: true,
+                  type: "object",
+                  properties: {
+                    id: {
+                      type: "string",
+                      example: "66a222222222222222222222"
+                    },
+                    fullName: {
+                      type: "string",
+                      example: "Nguyen Minh Anh"
+                    },
+                    avatarUrl: {
+                      type: "string",
+                      example: "https://lh3.googleusercontent.com/a/avatar"
+                    },
+                    isComplete: {
+                      type: "boolean",
+                      example: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    GoogleAuthLinkRequiredResponse: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/ErrorResponse"
+        },
+        {
+          type: "object",
+          properties: {
+            code: {
+              type: "string",
+              example: "GOOGLE_ACCOUNT_LINK_REQUIRED"
+            },
+            requireLink: {
+              type: "boolean",
+              example: true
+            },
+            email: {
+              type: "string",
+              format: "email",
+              example: "applicant@example.com"
+            },
+            linkToken: {
+              type: "string",
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
             }
           }
         }

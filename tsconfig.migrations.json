@@ -6,7 +6,9 @@
   },
   "include": [
     "scripts/rollout-monetization-indexes.ts",
+    "scripts/migrate-account-auth-methods.ts",
     "src/modules/billing/monetizationIndexRollout.ts",
-    "src/modules/billing/monetizationIndexRolloutRunner.ts"
+    "src/modules/billing/monetizationIndexRolloutRunner.ts",
+    "src/modules/auth/googleAuthMigration.ts"
   ]
 }

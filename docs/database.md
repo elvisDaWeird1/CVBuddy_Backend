@@ -1,4 +1,4 @@
-﻿# Database Notes
+# Database Notes
 
 This document is the human-readable database reference for current CVBuddy models, collections, fields, enums, indexes, and relationships. Mongoose model/schema files in `src/modules/**/*.model.ts` are the implementation source.
 
@@ -6,7 +6,7 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 
 ## Collections And Fields
 
-- `Account` -> `accounts`: email, passwordHash, role, status, createdAt, updatedAt.
+- `Account` -> `accounts`: email, passwordHash (required when `PASSWORD` is in `authMethods`, omitted for Google-only accounts), authMethods (`PASSWORD`, `GOOGLE`), googleSubject (required when `GOOGLE` is in `authMethods`, sparse unique index), emailVerifiedAt, lastLoginAt, role, status, createdAt, updatedAt.
 - `TokenRevocation` -> `token_revocations`: tokenHash, expiresAt, createdAt. MongoDB automatically removes expired records through a TTL index on `expiresAt`.
 - `ApplicantProfile` -> `applicant_profiles`: accountId, fullName, phone, university, major, location, headline, summary, careerGoal, avatarUrl, avatarPublicId, createdAt, updatedAt.
 - `CompanyProfile` -> `company_profiles`: accountId, companyName, industry, websiteUrl, logoUrl, description, address, contactEmail, contactPhone, createdAt, updatedAt.
@@ -41,7 +41,7 @@ If this file and the model/schema code disagree, do not blindly trust either fil
 
 ## Enum Sources
 
-Use `src/constants/enums.ts` for role, status, CV language, AI type/status, and visibility values.
+Use `src/constants/enums.ts` for role, status, auth method, CV language, AI type/status, and visibility values.
 
 Do not change schema fields, collection names, indexes, enum values, or relationships unless explicitly requested.
 
@@ -50,6 +50,8 @@ Do not change schema fields, collection names, indexes, enum values, or relation
 The application connects with `autoIndex: false`; index creation is an explicit deployment action, never a startup side effect. Use [the database bootstrap runbook](database-bootstrap-runbook.md) for fresh database, existing-data preflight, backup, apply, and restore steps.
 
 The canonical `Portfolio.applicantId` unique index is sparse so compatibility `LegacyPortfolio` records without that field can remain in the shared collection. It still prevents more than one canonical Portfolio for an applicant.
+
+The `Account.googleSubject` unique index (`googleSubject_1`) is sparse so password-only accounts without `googleSubject` can coexist while preventing duplicate Google subjects across accounts. Run `npm run migrate:google-auth` for a non-writing preflight of legacy account `authMethods`, conflicts, duplicate Google subjects, and the `googleSubject_1` index before running `npm run migrate:google-auth:apply`.
 
 ## New Portfolio indexes
 

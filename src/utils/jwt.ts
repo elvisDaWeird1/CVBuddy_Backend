@@ -32,7 +32,17 @@ const signAuthToken = (account) => {
 };
 
 const verifyAuthToken = (token) => {
-  return jwt.verify(token, getJwtSecret());
+  const decoded = jwt.verify(token, getJwtSecret());
+
+  if (
+    typeof decoded !== "object" ||
+    decoded === null ||
+    "purpose" in decoded
+  ) {
+    throw new jwt.JsonWebTokenError("Invalid session token payload");
+  }
+
+  return decoded;
 };
 
 export {

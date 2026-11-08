@@ -5,7 +5,9 @@ import {
   registerApplicantValidation,
   registerCompanyValidation,
   loginValidation,
-  changePasswordValidation
+  changePasswordValidation,
+  googleAuthValidation,
+  googleLinkValidation
 } from "./auth.validation";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validate.middleware";
@@ -28,6 +30,15 @@ router.post(
 );
 
 router.post("/login", authRateLimit, validate(loginValidation), authController.login);
+
+router.post("/google", authRateLimit, validate(googleAuthValidation), authController.googleLogin);
+
+router.post(
+  "/google/link",
+  authRateLimit,
+  validate(googleLinkValidation),
+  authController.linkGoogleAccount
+);
 
 router.post("/logout", authMiddleware, authController.logout);
 

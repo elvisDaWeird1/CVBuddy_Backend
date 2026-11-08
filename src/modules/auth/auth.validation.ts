@@ -81,9 +81,41 @@ const changePasswordValidation = (req) => {
   return errors;
 };
 
+const googleAuthValidation = (req) => {
+  const errors = [];
+  const body = req.body || {};
+  const idToken = typeof body.idToken === "string" && body.idToken.trim()
+    ? body.idToken
+    : body.credential;
+
+  if (isBlank(idToken)) {
+    errors.push({ field: "idToken", message: "idToken is required" });
+  }
+
+  return errors;
+};
+
+const googleLinkValidation = (req) => {
+  const errors = [];
+  const body = req.body || {};
+  const idToken = typeof body.idToken === "string" && body.idToken.trim()
+    ? body.idToken
+    : body.credential;
+
+  if (isBlank(idToken)) {
+    errors.push({ field: "idToken", message: "idToken is required" });
+  }
+
+  validatePassword(errors, "password", body.password);
+
+  return errors;
+};
+
 export {
   registerApplicantValidation,
   registerCompanyValidation,
   loginValidation,
-  changePasswordValidation
+  changePasswordValidation,
+  googleAuthValidation,
+  googleLinkValidation
 };

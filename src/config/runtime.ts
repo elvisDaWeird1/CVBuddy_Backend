@@ -38,10 +38,30 @@ const assertIntegerInRange = (name: string, value: string | undefined, minimum: 
   }
 };
 
+const GOOGLE_WEB_CLIENT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*\.apps\.googleusercontent\.com$/i;
+
+const validateGoogleClientIdConfig = (rawValue = process.env.GOOGLE_CLIENT_ID) => {
+  const value = rawValue?.trim();
+  if (!value) {
+    return;
+  }
+
+  if (
+    /^(change_me|replace_me|your[_-]|example)/i.test(value) ||
+    /\s/.test(value) ||
+    !GOOGLE_WEB_CLIENT_ID_PATTERN.test(value)
+  ) {
+    throw new Error(
+      "GOOGLE_CLIENT_ID must be a valid Google OAuth 2.0 Web Client ID ending in .apps.googleusercontent.com."
+    );
+  }
+};
+
 const validateProductionRuntimeConfig = () => {
   if (process.env.NODE_ENV !== "production") return;
 
   validateSecurityConfig();
+  validateGoogleClientIdConfig();
   const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
   if (!mongoUri?.trim() || !/^mongodb(\+srv)?:\/\//.test(mongoUri)) {
     throw new Error("MONGO_URI or MONGODB_URI must be a valid MongoDB connection URI in production.");
@@ -138,5 +158,6 @@ export {
   getReadiness,
   isAiEnabled,
   isServiceRootUrl,
+  validateGoogleClientIdConfig,
   validateProductionRuntimeConfig
 };

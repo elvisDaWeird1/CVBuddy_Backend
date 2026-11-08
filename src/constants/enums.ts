@@ -20,6 +20,11 @@ const CV_STATUSES = Object.freeze({
   DELETED: "DELETED"
 });
 
+const AUTH_METHODS = Object.freeze({
+  PASSWORD: "PASSWORD",
+  GOOGLE: "GOOGLE"
+});
+
 const AI_TYPES = Object.freeze({
   CV_FEEDBACK: "CV_FEEDBACK",
   CV_TRANSLATION: "CV_TRANSLATION",
@@ -40,6 +45,7 @@ const VISIBILITIES = Object.freeze({
 
 const ACCOUNT_ROLE_VALUES = Object.values(ACCOUNT_ROLES);
 const ACCOUNT_STATUS_VALUES = Object.values(ACCOUNT_STATUSES);
+const AUTH_METHOD_VALUES = Object.values(AUTH_METHODS);
 const CV_LANGUAGE_VALUES = Object.values(CV_LANGUAGES);
 const CV_STATUS_VALUES = Object.values(CV_STATUSES);
 const AI_TYPE_VALUES = Object.values(AI_TYPES);
@@ -133,6 +139,8 @@ export {
   ACCOUNT_ROLE_VALUES,
   ACCOUNT_STATUSES,
   ACCOUNT_STATUS_VALUES,
+  AUTH_METHODS,
+  AUTH_METHOD_VALUES,
   CV_LANGUAGES,
   CV_LANGUAGE_VALUES,
   CV_STATUSES,
