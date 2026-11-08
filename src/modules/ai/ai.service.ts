@@ -5,7 +5,7 @@ import ApplicantProfile from "../applicantProfiles/applicantProfile.model";
 import CVDocument from "../cvs/cvDocument.model";
 import { CvFileSourceAdapter } from "./adapters/cv-file-source.adapter";
 import { cvSectionsToText } from "./adapters/cv-sections-to-text";
-import { getAiServiceConfig, type AiLanguage, type AiTier } from "./ai.config";
+import { getAiServiceConfig, type AiLanguage, type AiLlmModel, type AiTier } from "./ai.config";
 import {
   AiServiceClient,
   isAiServiceError,
@@ -25,7 +25,7 @@ type AiRequestPayload = {
   companyModel?: "corporate" | "startup_agency";
   language?: AiLanguage;
   jdExtract?: Partial<FastApiJdExtract>;
-  llmModel?: string;
+  llmModel?: AiLlmModel;
   extractionMode?: "local" | "ai" | "hybrid";
   strictIndustryMatch?: boolean;
   sourceLang?: string;
@@ -218,7 +218,7 @@ const buildAnalyzeRequest = (
     language: "en",
     tier: SERVER_AI_TIER,
     local_metrics: extraction.local_metrics as FastApiLocalMetrics,
-    llm_model: payload.llmModel?.trim() || null,
+    llm_model: payload.llmModel || null,
     strict_industry_match: payload.strictIndustryMatch === true
   };
 };
@@ -248,7 +248,7 @@ const generateAnalyzeOutput = async ({
     };
 
     const verticalSlug = payload.verticalSlug?.trim() || config.defaultVerticalSlug;
-    const llmModel = payload.llmModel?.trim();
+    const llmModel = payload.llmModel;
     if (verticalSlug) query.vertical_slug = verticalSlug;
     if (llmModel) query.llm_model = llmModel;
 
@@ -257,7 +257,7 @@ const generateAnalyzeOutput = async ({
     const extraction = await client.extractCv(cvFile, {
       mode: payload.extractionMode || "hybrid",
       targetLanguage: payload.language || config.defaultLanguage,
-      llmModel: payload.llmModel?.trim() || undefined
+      llmModel: payload.llmModel
     });
     analysis = await client.analyzeCv(buildAnalyzeRequest(payload, extraction));
   }
@@ -288,7 +288,7 @@ const generateTranslationOutput = async ({
     const extraction = await client.extractCv(file, {
       mode: "hybrid",
       targetLanguage: cv.language === "EN" ? "en" : "vi",
-      llmModel: payload.llmModel?.trim() || undefined
+      llmModel: payload.llmModel
     });
     sourceText = cvSectionsToText(extraction.sections);
   }
@@ -573,7 +573,7 @@ const translateAndScore = async (
     extraction = await client.extractCv(file, {
       mode: normalizedPayload.extractionMode || "hybrid",
       targetLanguage: cv.language === "EN" ? "en" : "vi",
-      llmModel: normalizedPayload.llmModel?.trim() || undefined
+      llmModel: normalizedPayload.llmModel
     });
     sourceText = sourceText || cvSectionsToText(extraction.sections);
     requireInputText(sourceText);

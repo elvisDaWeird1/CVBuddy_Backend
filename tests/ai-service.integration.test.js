@@ -114,6 +114,47 @@ test("public AI requests reject client-controlled tier and plan fields", () => {
   assert.deepEqual(validCareerRequest, []);
 });
 
+test("public AI requests enforce the FastAPI model enum and jdExtract shape", () => {
+  const cvId = "507f1f77bcf86cd799439011";
+  const valid = cvAiRequestValidation({
+    params: { cvId },
+    body: {
+      llmModel: "openai/gpt-oss-120b",
+      jdExtract: {
+        company_name: "Example Labs",
+        required_keywords: ["Python"],
+        preferred_keywords: [],
+        responsibilities: ["Train models"]
+      }
+    }
+  });
+  assert.deepEqual(valid, []);
+
+  const invalidModel = cvAiRequestValidation({
+    params: { cvId },
+    body: { llmModel: "unsupported/model" }
+  });
+  assert.ok(invalidModel.some((error) => error.field === "llmModel"));
+
+  const invalidJdExtract = cvAiRequestValidation({
+    params: { cvId },
+    body: {
+      jdExtract: {
+        company_name: 123,
+        required_keywords: "Python",
+        preferred_keywords: ["MLOps", 42],
+        responsibilities: null
+      }
+    }
+  });
+  assert.deepEqual(invalidJdExtract.map((error) => error.field), [
+    "jdExtract.company_name",
+    "jdExtract.required_keywords",
+    "jdExtract.preferred_keywords",
+    "jdExtract.responsibilities"
+  ]);
+});
+
 test("career targeting requires verticalSlug and defaults support finance and hospitality", () => {
   const cvId = "507f1f77bcf86cd799439011";
   assert.ok(careerTargetAiRequestValidation({ params: { cvId }, body: { industrySlug: "finance_banking", targetRole: "Financial Analyst" } }).some((error) => error.field === "verticalSlug"));
@@ -743,6 +784,7 @@ test("targeted analysis builds canonical JSON from extraction and validated care
     await aiService.generateScore("account-1", "cv-1", careerTarget);
     await aiService.generateScore("account-1", "cv-1", {
       ...careerTarget,
+      llmModel: "openai/gpt-oss-120b",
       jdExtract: {
         role_title: "Untrusted alternate title",
         required_keywords: ["Python", "PyTorch"],
@@ -772,6 +814,7 @@ test("targeted analysis builds canonical JSON from extraction and validated care
     assert.deepEqual(analyzeBodies[0], baseExpected);
     assert.deepEqual(analyzeBodies[1], {
       ...baseExpected,
+      llm_model: "openai/gpt-oss-120b",
       jd_extract: {
         role_title: "AI Engineer Intern",
         required_keywords: ["Python", "PyTorch"],

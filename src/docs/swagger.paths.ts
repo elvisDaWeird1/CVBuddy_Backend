@@ -1612,14 +1612,78 @@ const swaggerComponents = {
     },
     AiCvRequest: {
       type: "object",
+      description: "Public Node API request. A complete industrySlug, verticalSlug, and targetRole selects the canonical targeted /v1/cv/analyze flow.",
       properties: {
+        industrySlug: {
+          type: "string",
+          example: "ai_software"
+        },
+        verticalSlug: {
+          type: "string",
+          example: "machine_learning"
+        },
         targetRole: {
           type: "string",
-          example: "Backend Developer"
+          example: "AI Engineer Intern"
         },
         cvText: {
           type: "string",
           example: "Nguyen Van A\nBackend developer intern\nSkills: Node.js, Express, MongoDB..."
+        },
+        companyModel: {
+          type: "string",
+          enum: ["corporate", "startup_agency"],
+          example: "corporate"
+        },
+        language: {
+          type: "string",
+          enum: ["vi", "en", "both"],
+          example: "en"
+        },
+        jdExtract: {
+          type: "object",
+          description: "Optional pre-parsed JD data. targetRole remains the authoritative role title.",
+          properties: {
+            company_name: { type: "string", example: "Example Labs" },
+            required_keywords: {
+              type: "array",
+              items: { type: "string" },
+              example: ["Python", "PyTorch"]
+            },
+            preferred_keywords: {
+              type: "array",
+              items: { type: "string" },
+              example: ["MLOps"]
+            },
+            responsibilities: {
+              type: "array",
+              items: { type: "string" },
+              example: ["Train and evaluate models"]
+            }
+          }
+        },
+        llmModel: {
+          type: "string",
+          enum: ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"],
+          example: "openai/gpt-oss-120b"
+        },
+        extractionMode: {
+          type: "string",
+          enum: ["local", "ai", "hybrid"],
+          example: "hybrid"
+        },
+        strictIndustryMatch: {
+          type: "boolean",
+          default: false
+        },
+        sourceLang: {
+          type: "string",
+          example: "vi"
+        },
+        translationMode: {
+          type: "string",
+          enum: ["literal", "cv_native"],
+          example: "cv_native"
         }
       }
     },

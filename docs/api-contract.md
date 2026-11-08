@@ -228,7 +228,9 @@ The complete request/response examples, error codes, migration requirement and f
 ## AI service integration
 
 - The existing `/api/ai/cvs/:cvId/feedback`, `/score`, and `/translate-to-english` routes keep their public paths and response wrapper.
-- Their optional request body may include `industrySlug`, `verticalSlug`, `companyModel`, `language`, `jdExtract`, `llmModel`, `extractionMode`, and `strictIndustryMatch`; legacy `targetRole` and `cvText` remain accepted. `tier`, plan, credits, and credit cost are server-controlled; requests that try to set them are rejected with `400`.
+- Their public request body uses camelCase. A targeted request contains `industrySlug`, `verticalSlug`, and `targetRole`; optional fields are `companyModel`, `language`, `jdExtract`, `llmModel`, `extractionMode`, `strictIndustryMatch`, `sourceLang`, `translationMode`, and legacy `cvText`. `jdExtract` uses `company_name`, `required_keywords`, `preferred_keywords`, and `responsibilities`; all three list fields must be arrays of strings when supplied. `targetRole` is authoritative and becomes FastAPI `jd_extract.role_title`.
+- `llmModel`, when supplied, must be `qwen/qwen3.8-27b` or `openai/gpt-oss-120b`. Omit it to let Node send `llm_model: null` to targeted analysis.
+- `tier`, subscription, plan, credits, and credit cost are server-controlled; requests that try to set them are rejected with `400`. Frontend callers never send extracted `sections`, `local_metrics`, or the internal AI key.
 - The Node backend calls the independent FastAPI service configured by `AI_SERVICE_URL`; clients never call FastAPI directly.
 - Node authenticates to canonical FastAPI `/v1/*` endpoints with a runtime-only internal key and propagates `X-Request-ID`; `AI_SERVICE_URL` is the service root and does not contain `/v1`.
 - When `AI_SERVICE_ENABLED=false`, AI execution routes return HTTP `503` with code `AI_FEATURE_DISABLED`; result history/detail routes remain readable.

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import { AI_STATUS_VALUES, AI_TYPE_VALUES } from "../../constants/enums";
+import { AI_LLM_MODEL_VALUES } from "./ai.config";
 
 const isNonEmptyString = (value) => {
   return typeof value === "string" && value.trim().length > 0;
@@ -35,6 +36,27 @@ const validateOptionalEnum = (errors, body, field, values) => {
   }
 };
 
+const validateJdExtract = (errors, value) => {
+  if (value === undefined) return;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    errors.push({ field: "jdExtract", message: "jdExtract must be an object" });
+    return;
+  }
+
+  for (const field of ["role_title", "company_name"]) {
+    if (value[field] !== undefined && typeof value[field] !== "string") {
+      errors.push({ field: `jdExtract.${field}`, message: `${field} must be a string` });
+    }
+  }
+
+  for (const field of ["required_keywords", "preferred_keywords", "responsibilities"]) {
+    if (value[field] !== undefined
+        && (!Array.isArray(value[field]) || value[field].some((item) => typeof item !== "string"))) {
+      errors.push({ field: `jdExtract.${field}`, message: `${field} must be an array of strings` });
+    }
+  }
+};
+
 const cvAiRequestValidation = (req) => {
   const errors = [];
   const body = req.body || {};
@@ -47,7 +69,6 @@ const cvAiRequestValidation = (req) => {
   validateOptionalString(errors, body, "cvText", 20000);
   validateOptionalString(errors, body, "industrySlug", 100);
   validateOptionalString(errors, body, "verticalSlug", 150);
-  validateOptionalString(errors, body, "llmModel", 150);
   validateOptionalString(errors, body, "sourceLang", 20);
 
   if (body.cvText !== undefined && !isNonEmptyString(body.cvText)) {
@@ -56,6 +77,7 @@ const cvAiRequestValidation = (req) => {
 
   validateOptionalEnum(errors, body, "companyModel", ["corporate", "startup_agency"]);
   validateOptionalEnum(errors, body, "language", ["vi", "en", "both"]);
+  validateOptionalEnum(errors, body, "llmModel", AI_LLM_MODEL_VALUES);
   validateOptionalEnum(errors, body, "extractionMode", ["local", "ai", "hybrid"]);
   validateOptionalEnum(errors, body, "translationMode", ["literal", "cv_native"]);
 
@@ -69,10 +91,7 @@ const cvAiRequestValidation = (req) => {
     errors.push({ field: "strictIndustryMatch", message: "strictIndustryMatch must be a boolean" });
   }
 
-  if (body.jdExtract !== undefined &&
-      (typeof body.jdExtract !== "object" || body.jdExtract === null || Array.isArray(body.jdExtract))) {
-    errors.push({ field: "jdExtract", message: "jdExtract must be an object" });
-  }
+  validateJdExtract(errors, body.jdExtract);
 
   return errors;
 };
