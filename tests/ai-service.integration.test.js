@@ -40,10 +40,26 @@ const analyzeRequest = {
     certifications: [],
     other: []
   },
-  industry_slug: "language",
+  industry_slug: "ai_software",
+  vertical_slug: "machine_learning",
   company_model: "corporate",
-  language: "both",
+  jd_extract: {
+    role_title: "AI Engineer Intern",
+    required_keywords: [],
+    preferred_keywords: [],
+    responsibilities: []
+  },
+  language: "en",
   tier: "free",
+  local_metrics: {
+    bullet_count: 1,
+    quantified_bullet_count: 0,
+    has_quantified_bullets: false,
+    avg_bullet_length: 12,
+    section_count: 2,
+    detected_languages: ["en"]
+  },
+  llm_model: null,
   strict_industry_match: false
 };
 
@@ -662,6 +678,113 @@ test("analysis can send the stored file when extractedText is absent", async () 
   } finally {
     if (originalEnabled === undefined) delete process.env.AI_SERVICE_ENABLED;
     else process.env.AI_SERVICE_ENABLED = originalEnabled;
+    if (originalUploadDir === undefined) delete process.env.UPLOAD_DIR;
+    else process.env.UPLOAD_DIR = originalUploadDir;
+    ApplicantProfile.findOne = originalFindProfile;
+    CVDocument.findOne = originalFindCv;
+    AIResult.create = originalCreate;
+    global.fetch = originalFetch;
+    fs.promises.stat = originalStat;
+    fs.promises.readFile = originalReadFile;
+  }
+});
+
+test("targeted analysis builds canonical JSON from extraction and validated career input", async () => {
+  const fs = require("fs");
+  const originalEnabled = process.env.AI_SERVICE_ENABLED;
+  const originalSlugs = process.env.AI_SUPPORTED_INDUSTRY_SLUGS;
+  const originalUploadDir = process.env.UPLOAD_DIR;
+  const originalFindProfile = ApplicantProfile.findOne;
+  const originalFindCv = CVDocument.findOne;
+  const originalCreate = AIResult.create;
+  const originalFetch = global.fetch;
+  const originalStat = fs.promises.stat;
+  const originalReadFile = fs.promises.readFile;
+
+  process.env.AI_SERVICE_ENABLED = "true";
+  process.env.AI_SUPPORTED_INDUSTRY_SLUGS = "ai_software";
+  process.env.UPLOAD_DIR = "uploads";
+  ApplicantProfile.findOne = async () => ({ _id: "profile-1" });
+  CVDocument.findOne = async () => ({
+    _id: "cv-1",
+    fileUrl: "/uploads/cvs/targeted.pdf",
+    language: "VI"
+  });
+  fs.promises.stat = async () => ({ isFile: () => true, size: 12 });
+  fs.promises.readFile = async () => Buffer.from("%PDF-targeted");
+  AIResult.create = async (payload) => ({
+    ...payload,
+    _id: { toString: () => "result-targeted-1" },
+    accountId: { toString: () => "account-1" },
+    createdAt: new Date(),
+    save: async () => undefined
+  });
+
+  const analyzeBodies = [];
+  global.fetch = async (input, init) => {
+    const path = new URL(input).pathname;
+    if (path === "/v1/cv/extract") {
+      return new Response(JSON.stringify(extractResponse), { status: 200 });
+    }
+    if (path === "/v1/cv/analyze") {
+      analyzeBodies.push(JSON.parse(init.body));
+      return new Response(JSON.stringify(analyzeResponse), { status: 200 });
+    }
+    throw new Error(`Unexpected AI path: ${path}`);
+  };
+
+  const careerTarget = {
+    industrySlug: "ai_software",
+    verticalSlug: "machine_learning",
+    targetRole: "AI Engineer Intern"
+  };
+
+  try {
+    await aiService.generateScore("account-1", "cv-1", careerTarget);
+    await aiService.generateScore("account-1", "cv-1", {
+      ...careerTarget,
+      jdExtract: {
+        role_title: "Untrusted alternate title",
+        required_keywords: ["Python", "PyTorch"],
+        preferred_keywords: ["MLOps"],
+        responsibilities: ["Train and evaluate models"]
+      }
+    });
+
+    const baseExpected = {
+      sections: extractResponse.sections,
+      industry_slug: "ai_software",
+      vertical_slug: "machine_learning",
+      company_model: "corporate",
+      jd_extract: {
+        role_title: "AI Engineer Intern",
+        required_keywords: [],
+        preferred_keywords: [],
+        responsibilities: []
+      },
+      language: "en",
+      tier: "free",
+      local_metrics: extractResponse.local_metrics,
+      llm_model: null,
+      strict_industry_match: false
+    };
+
+    assert.deepEqual(analyzeBodies[0], baseExpected);
+    assert.deepEqual(analyzeBodies[1], {
+      ...baseExpected,
+      jd_extract: {
+        role_title: "AI Engineer Intern",
+        required_keywords: ["Python", "PyTorch"],
+        preferred_keywords: ["MLOps"],
+        responsibilities: ["Train and evaluate models"]
+      }
+    });
+    assert.equal(JSON.stringify(analyzeBodies).includes("undefined"), false);
+  } finally {
+    if (originalEnabled === undefined) delete process.env.AI_SERVICE_ENABLED;
+    else process.env.AI_SERVICE_ENABLED = originalEnabled;
+    if (originalSlugs === undefined) delete process.env.AI_SUPPORTED_INDUSTRY_SLUGS;
+    else process.env.AI_SUPPORTED_INDUSTRY_SLUGS = originalSlugs;
     if (originalUploadDir === undefined) delete process.env.UPLOAD_DIR;
     else process.env.UPLOAD_DIR = originalUploadDir;
     ApplicantProfile.findOne = originalFindProfile;

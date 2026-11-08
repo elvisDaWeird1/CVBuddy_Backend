@@ -30,7 +30,7 @@ AI_SERVICE_ALLOW_MOCK_OUTPUT=false
 AI_DEFAULT_INDUSTRY_SLUG=language
 AI_DEFAULT_VERTICAL_SLUG=
 AI_DEFAULT_COMPANY_MODEL=corporate
-AI_DEFAULT_LANGUAGE=both
+AI_DEFAULT_LANGUAGE=en
 AI_SUPPORTED_INDUSTRY_SLUGS=ai_software,business_administration,computer_science,language,law,marketing
 ```
 
@@ -42,6 +42,7 @@ AI_SUPPORTED_INDUSTRY_SLUGS=ai_software,business_administration,computer_science
 - `AI_INTERNAL_API_KEY` is shared only through the Node and FastAPI platform secret stores. Production requires at least 32 characters.
 - `AI_SERVICE_TIMEOUT_MS` controls the AbortController timeout and production accepts `1000` through `120000` milliseconds.
 - `AI_DEFAULT_INDUSTRY_SLUG` preserves compatibility with old clients that only send `targetRole`/`cvText`; new clients should send `industrySlug` when known.
+- JSON requests to `/v1/cv/analyze` always send `language=en`; the default keeps extraction behavior aligned when the public request omits a language.
 - Groq/Ollama credentials remain only in the FastAPI repository `.env`.
 - Node sends `X-AI-Internal-Key` and the incoming `X-Request-ID` on every FastAPI call. Redirects are rejected so the internal key is never forwarded to another host.
 - Production accepts a successful final AI result only when metadata contains both `source=groq` and `provider=groq`.
@@ -94,9 +95,11 @@ The outer Compose file is not changed to build the nested AI repository because 
 
 | Node route | FastAPI calls | Stored result |
 | --- | --- | --- |
-| `POST /api/ai/cvs/:cvId/feedback` | `/v1/cv/extract-and-analyze` by default; two-step `/extract` + `/analyze` when JD context is needed | `CV_FEEDBACK` |
-| `POST /api/ai/cvs/:cvId/score` | `/v1/cv/extract-and-analyze` by default; two-step `/extract` + `/analyze` when JD context is needed | `CV_SCORING, score=overall_score` |
+| `POST /api/ai/cvs/:cvId/feedback` | Multipart `/v1/cv/extract-and-analyze` without a complete career target; otherwise `/extract` + canonical JSON `/analyze` | `CV_FEEDBACK` |
+| `POST /api/ai/cvs/:cvId/review` | `/v1/cv/extract` + canonical JSON `/v1/cv/analyze` | `CV_FEEDBACK` |
+| `POST /api/ai/cvs/:cvId/score` | Multipart `/v1/cv/extract-and-analyze` without a complete career target; otherwise `/extract` + canonical JSON `/analyze` | `CV_SCORING, score=overall_score` |
 | `POST /api/ai/cvs/:cvId/translate-to-english` | `/v1/translate` | `CV_TRANSLATION` |
+| `POST /api/ai/cvs/:cvId/translate-and-score` | `/v1/cv/extract`, `/v1/translate`, then canonical JSON `/v1/cv/analyze` | `CV_TRANSLATION` + `CV_SCORING` |
 | `GET /api/ai/results` | MongoDB only | Existing response |
 | `GET /api/ai/results/:id` | MongoDB only | Existing response |
 
@@ -108,11 +111,54 @@ The current CV storage uses local `/uploads/cvs/<filename>` paths. For analysis,
 
 1. Authenticates the applicant and verifies the CV belongs to that account.
 2. Resolves the persisted local or trusted Cloudinary PDF/DOCX through the source adapter and enforces the configured size limit.
-3. When there is no JD context, sends the file as multipart field `file` to `POST /v1/cv/extract-and-analyze` with the supported query parameters.
-4. When `targetRole` or `jdExtract` must be preserved, sends the file to `POST /v1/cv/extract`, then sends the returned `sections` and `local_metrics` to `POST /v1/cv/analyze`.
+3. Without a complete validated `industrySlug` + `verticalSlug` + `targetRole`, sends the file as multipart field `file` to `POST /v1/cv/extract-and-analyze` with the supported query parameters. This preserves the legacy query defaults and does not fabricate a missing vertical or role merely to force the canonical JSON path.
+4. With a complete career target, sends the file to `POST /v1/cv/extract`, then sends the returned `sections` and `local_metrics` through the single canonical builder to `POST /v1/cv/analyze`.
 5. Stores the validated FastAPI response as JSON in `AIResult.resultText`.
 
-The legacy `targetRole` field maps to FastAPI `jd_extract.role_title`. Optional compatible fields are `industrySlug`, `verticalSlug`, `companyModel`, `language`, `jdExtract`, `llmModel`, `extractionMode`, and `strictIndustryMatch`. The public API rejects client-supplied tier, plan, credits, and credit cost. Until the entitlement service is connected, Node always sends the server-owned `free` tier to FastAPI.
+The canonical `/v1/cv/analyze` body is:
+
+```json
+{
+  "sections": {
+    "summary": ["<extracted CV content>"],
+    "experience": ["<extracted CV content>"],
+    "education": ["<extracted CV content>"],
+    "skills": ["<extracted CV content>"],
+    "projects": [],
+    "certifications": [],
+    "other": []
+  },
+  "industry_slug": "ai_software",
+  "vertical_slug": "machine_learning",
+  "company_model": "corporate",
+  "jd_extract": {
+    "role_title": "AI Engineer Intern",
+    "required_keywords": [],
+    "preferred_keywords": [],
+    "responsibilities": []
+  },
+  "language": "en",
+  "tier": "free",
+  "local_metrics": {
+    "bullet_count": 6,
+    "quantified_bullet_count": 2,
+    "has_quantified_bullets": true,
+    "avg_bullet_length": 54.5,
+    "section_count": 4,
+    "detected_languages": ["en"]
+  },
+  "llm_model": null,
+  "strict_industry_match": false
+}
+```
+
+- `sections` and `local_metrics` are copied from the validated extraction response; Node does not replace them with examples, empty content, or zero metrics.
+- `industry_slug`, `vertical_slug`, and `jd_extract.role_title` come from the validated public career target. `jd_extract` always contains the three keyword/responsibility arrays, defaulting each missing array to `[]`; valid caller-provided arrays are preserved.
+- Node controls `tier` and currently always sends `free`. Public callers cannot submit tier, plan, credits, or credit cost.
+- Node sends `language=en`, includes `llm_model=null` when no model is selected, and defaults `strict_industry_match` to `false`.
+- `company_model`, an explicit model override, and `strict_industry_match` use validated request values when supplied. The builder omits undefined values rather than serializing them.
+
+`/v1/cv/analyze` is the JSON-only second stage for targeted analysis and requires prior extraction. `/v1/cv/extract-and-analyze` remains the multipart compatibility path for analysis without all three career-target fields; it accepts a file plus query parameters and does not accept the canonical `jd_extract`, `sections`, or `local_metrics` JSON body.
 
 Node never sends a Cloudinary URL directly to a multipart-only FastAPI endpoint. The CV source adapter downloads only persisted trusted Cloudinary sources, validates them, and sends the resulting bytes as multipart file. Unsupported remote storage returns an error.
 
@@ -154,7 +200,7 @@ The typed client includes methods for `/v1/portfolio/suggest` and `/v1/portfolio
 | Non-JSON/empty success response, invalid FastAPI schema, missing Groq provenance, or disallowed mock output | `502 AI_PROVIDER_ERROR` |
 | Non-JSON/empty FastAPI error response | Preserve the upstream HTTP failure class and map it to the existing safe Node error code |
 
-FastAPI stack traces, raw response bodies, CV payloads, API keys, and tokens are not returned or logged by the adapter. Logs classify an upstream body only as `json`, `non_json`, or `empty`, together with the safe HTTP status and request ID. Extraction responses must contain all section arrays, the complete local-metrics object, a positive normalized text length, and at least one non-empty extracted block before Node can call the analyze step. Failed AIResult records are marked `FAILED` with a safe error message.
+FastAPI stack traces, raw response bodies, CV content, extracted sections, personal data, API keys/internal keys, and tokens are not returned or logged by the adapter. Production logs must contain only operational metadata such as the route, safe error classification/status, and request ID; token usage may be stored as aggregate usage metadata but must not be logged. Logs classify an upstream body only as `json`, `non_json`, or `empty`, together with the safe HTTP status and request ID. Extraction responses must contain all section arrays, the complete local-metrics object, a positive normalized text length, and at least one non-empty extracted block before Node can call the analyze step. Failed AIResult records are marked `FAILED` with a safe error message.
 
 ## Tests and health checks
 

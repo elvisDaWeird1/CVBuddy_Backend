@@ -24,7 +24,7 @@ type AiRequestPayload = {
   verticalSlug?: string;
   companyModel?: "corporate" | "startup_agency";
   language?: AiLanguage;
-  jdExtract?: FastApiJdExtract;
+  jdExtract?: Partial<FastApiJdExtract>;
   llmModel?: string;
   extractionMode?: "local" | "ai" | "hybrid";
   strictIndustryMatch?: boolean;
@@ -168,24 +168,57 @@ const resolveIndustrySlug = (payload: AiRequestPayload, config: ReturnType<typeo
   return industrySlug;
 };
 
-const getAnalyzeRequest = (
+const stringArrayOrEmpty = (value: unknown) =>
+  Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
+
+const hasCareerTarget = (payload: AiRequestPayload) => Boolean(
+  payload.industrySlug?.trim()
+  && payload.verticalSlug?.trim()
+  && payload.targetRole?.trim()
+);
+
+const buildAnalyzeRequest = (
   payload: AiRequestPayload,
   extraction: FastApiExtractResponse
 ): FastApiAnalyzeRequest => {
   const config = getAiServiceConfig();
+  const industrySlug = payload.industrySlug?.trim().toLowerCase();
+  const verticalSlug = payload.verticalSlug?.trim().toLowerCase();
   const targetRole = payload.targetRole?.trim();
-  const jdExtract = payload.jdExtract || (targetRole ? { role_title: targetRole } : undefined);
+
+  if (!industrySlug || !verticalSlug || !targetRole) {
+    throw new ApiError(400, "A complete career target is required for CV analysis");
+  }
+
+  const companyName = typeof payload.jdExtract?.company_name === "string"
+    ? payload.jdExtract.company_name.trim()
+    : "";
+  const jdExtract: FastApiJdExtract = {
+    role_title: targetRole,
+    ...(companyName ? { company_name: companyName } : {}),
+    required_keywords: stringArrayOrEmpty(payload.jdExtract?.required_keywords),
+    preferred_keywords: stringArrayOrEmpty(payload.jdExtract?.preferred_keywords),
+    responsibilities: stringArrayOrEmpty(payload.jdExtract?.responsibilities)
+  };
 
   return {
-    sections: extraction.sections,
-    local_metrics: extraction.local_metrics as FastApiLocalMetrics,
-    industry_slug: resolveIndustrySlug(payload, config),
-    vertical_slug: payload.verticalSlug?.trim() || config.defaultVerticalSlug,
+    sections: {
+      summary: extraction.sections.summary,
+      experience: extraction.sections.experience,
+      education: extraction.sections.education,
+      skills: extraction.sections.skills,
+      projects: extraction.sections.projects,
+      certifications: extraction.sections.certifications,
+      other: extraction.sections.other
+    },
+    industry_slug: resolveIndustrySlug({ ...payload, industrySlug }, config),
+    vertical_slug: verticalSlug,
     company_model: payload.companyModel || config.defaultCompanyModel,
     jd_extract: jdExtract,
-    language: payload.language || config.defaultLanguage,
+    language: "en",
     tier: SERVER_AI_TIER,
-    llm_model: payload.llmModel?.trim() || undefined,
+    local_metrics: extraction.local_metrics as FastApiLocalMetrics,
+    llm_model: payload.llmModel?.trim() || null,
     strict_industry_match: payload.strictIndustryMatch === true
   };
 };
@@ -203,11 +236,9 @@ const generateAnalyzeOutput = async ({
 }): Promise<MockAiOutput> => {
   const config = getAiServiceConfig();
   const client = new AiServiceClient({ ...config, requestId });
-  const targetRole = payload.targetRole?.trim();
-  const hasJdContext = Boolean(targetRole || payload.jdExtract);
 
   let analysis;
-  if (!hasJdContext) {
+  if (!hasCareerTarget(payload)) {
     const query: Record<string, string> = {
       industry_slug: resolveIndustrySlug(payload, config),
       company_model: payload.companyModel || config.defaultCompanyModel,
@@ -228,7 +259,7 @@ const generateAnalyzeOutput = async ({
       targetLanguage: payload.language || config.defaultLanguage,
       llmModel: payload.llmModel?.trim() || undefined
     });
-    analysis = await client.analyzeCv(getAnalyzeRequest(payload, extraction));
+    analysis = await client.analyzeCv(buildAnalyzeRequest(payload, extraction));
   }
 
   return {
@@ -560,7 +591,7 @@ const translateAndScore = async (
 
     try {
       const analysis = await client.analyzeCv(
-        getAnalyzeRequest(normalizedPayload, extraction)
+        buildAnalyzeRequest(normalizedPayload, extraction)
       );
       await completeAiResult(scoringResult, {
         resultText: JSON.stringify(analysis),
