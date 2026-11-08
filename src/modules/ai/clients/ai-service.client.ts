@@ -1,4 +1,4 @@
-import type { AiServiceConfig } from "../ai.config";
+import type { AiLlmModel, AiServiceConfig } from "../ai.config";
 
 type ErrorItem = {
   field?: string;
@@ -50,7 +50,7 @@ type FastApiAnalyzeRequest = {
   language: "en";
   tier: "free";
   local_metrics: FastApiLocalMetrics;
-  llm_model: string | null;
+  llm_model: AiLlmModel | null;
   strict_industry_match: boolean;
 };
 
@@ -460,7 +460,7 @@ class AiServiceClient {
     });
   }
 
-  async extractCv(file: LocalCvFile, options: { mode: string; targetLanguage: string; llmModel?: string }) {
+  async extractCv(file: LocalCvFile, options: { mode: string; targetLanguage: string; llmModel?: AiLlmModel }) {
     const query = new URLSearchParams({
       mode: options.mode,
       target_language: options.targetLanguage

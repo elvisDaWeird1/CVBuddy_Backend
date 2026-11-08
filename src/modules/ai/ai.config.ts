@@ -10,10 +10,15 @@ const DEFAULT_INDUSTRY_SLUGS = [
   "law",
   "marketing"
 ];
+const AI_LLM_MODEL_VALUES = [
+  "qwen/qwen3.8-27b",
+  "openai/gpt-oss-120b"
+] as const;
 
 type AiCompanyModel = "corporate" | "startup_agency";
 type AiLanguage = "vi" | "en" | "both";
 type AiTier = "free" | "subscription";
+type AiLlmModel = (typeof AI_LLM_MODEL_VALUES)[number];
 
 type AiServiceConfig = {
   enabled: boolean;
@@ -84,9 +89,11 @@ const getAiServiceConfig = (): AiServiceConfig => {
 };
 
 export {
+  AI_LLM_MODEL_VALUES,
   getAiServiceConfig,
   type AiCompanyModel,
   type AiLanguage,
+  type AiLlmModel,
   type AiServiceConfig,
   type AiTier
 };

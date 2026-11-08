@@ -157,6 +157,7 @@ The canonical `/v1/cv/analyze` body is:
 - Node controls `tier` and currently always sends `free`. Public callers cannot submit tier, plan, credits, or credit cost.
 - Node sends `language=en`, includes `llm_model=null` when no model is selected, and defaults `strict_industry_match` to `false`.
 - `company_model`, an explicit model override, and `strict_industry_match` use validated request values when supplied. The builder omits undefined values rather than serializing them.
+- Public clients use camelCase and may select only `qwen/qwen3.8-27b` or `openai/gpt-oss-120b` through `llmModel`. `jdExtract` keyword/responsibility values must be arrays of strings. Node derives `jd_extract.role_title` from validated `targetRole`; it does not trust a second role title nested inside `jdExtract`.
 
 `/v1/cv/analyze` is the JSON-only second stage for targeted analysis and requires prior extraction. `/v1/cv/extract-and-analyze` remains the multipart compatibility path for analysis without all three career-target fields; it accepts a file plus query parameters and does not accept the canonical `jd_extract`, `sections`, or `local_metrics` JSON body.
 
