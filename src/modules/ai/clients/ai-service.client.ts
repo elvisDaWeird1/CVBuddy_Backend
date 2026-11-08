@@ -34,23 +34,23 @@ type FastApiExtractResponse = {
 };
 
 type FastApiJdExtract = {
-  role_title?: string;
+  role_title: string;
   company_name?: string;
-  required_keywords?: string[];
-  preferred_keywords?: string[];
-  responsibilities?: string[];
+  required_keywords: string[];
+  preferred_keywords: string[];
+  responsibilities: string[];
 };
 
 type FastApiAnalyzeRequest = {
   sections: FastApiCvSections;
   industry_slug: string;
-  vertical_slug?: string;
+  vertical_slug: string;
   company_model: "corporate" | "startup_agency";
-  jd_extract?: FastApiJdExtract;
-  language: "vi" | "en" | "both";
-  tier: "free" | "subscription";
-  local_metrics?: FastApiLocalMetrics;
-  llm_model?: string;
+  jd_extract: FastApiJdExtract;
+  language: "en";
+  tier: "free";
+  local_metrics: FastApiLocalMetrics;
+  llm_model: string | null;
   strict_industry_match: boolean;
 };
 

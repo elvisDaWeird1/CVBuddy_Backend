@@ -79,7 +79,7 @@ const getAiServiceConfig = (): AiServiceConfig => {
     supportedIndustrySlugs,
     defaultVerticalSlug: process.env.AI_DEFAULT_VERTICAL_SLUG?.trim() || undefined,
     defaultCompanyModel: companyModel === "startup_agency" ? "startup_agency" : "corporate",
-    defaultLanguage: language === "vi" || language === "en" ? language : "both"
+    defaultLanguage: language === "vi" || language === "both" ? language : "en"
   };
 };
 
